@@ -5,7 +5,9 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
+from sqlalchemy import select
 
+from ..db.models import Broadcast, TaskItem, User, Withdrawal
 from ..keyboards.admin import (
     admin_menu_kb,
     sponsors_admin_kb,
@@ -19,9 +21,10 @@ from ..services.subscriptions import (
     add_bot_sponsor,
     add_channel_sponsor,
     delete_sponsor,
+    parse_chat_ref,
 )
 from ..services.withdrawals import mark_paid
-from ..utils.stars import format_stars
+from ..utils.stars import format_stars, stars_to_tenths
 
 router_admin = Router()
 
@@ -51,18 +54,18 @@ def stats_text(stats) -> str:
     )
 
 
-@router_admin.message(Command("admin"), IsAdmin)
+@router_admin.message(Command("admin"), IsAdmin())
 async def admin_panel(message: Message) -> None:
     await message.answer("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
 
 
-@router_admin.callback_query(F.data == "admin:menu", IsAdmin)
+@router_admin.callback_query(F.data == "admin:menu", IsAdmin())
 async def admin_back(callback: CallbackQuery) -> None:
     await callback.message.edit_text("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
     await callback.answer()
 
 
-@router_admin.callback_query(F.data == "admin:stats", IsAdmin)
+@router_admin.callback_query(F.data == "admin:stats", IsAdmin())
 async def admin_stats(callback: CallbackQuery, session) -> None:
     stats = await get_stats(session)
     await callback.message.edit_text(
@@ -71,7 +74,7 @@ async def admin_stats(callback: CallbackQuery, session) -> None:
     await callback.answer()
 
 
-@router_admin.callback_query(F.data == "admin:sponsors", IsAdmin)
+@router_admin.callback_query(F.data == "admin:sponsors", IsAdmin())
 async def admin_sponsors(callback: CallbackQuery, session) -> None:
     sponsors = await active_sponsors(session)
     await callback.message.edit_text(
@@ -80,7 +83,7 @@ async def admin_sponsors(callback: CallbackQuery, session) -> None:
     await callback.answer()
 
 
-@router_admin.callback_query(F.data == "admin:sponsor:add_channel", IsAdmin)
+@router_admin.callback_query(F.data == "admin:sponsor:add_channel", IsAdmin())
 async def admin_add_channel(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.sponsor_channel_link)
     await callback.message.edit_text(
@@ -91,7 +94,7 @@ async def admin_add_channel(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router_admin.message(AdminStates.sponsor_channel_link, IsAdmin)
+@router_admin.message(AdminStates.sponsor_channel_link, IsAdmin())
 async def admin_receive_channel(message: Message, state: FSMContext, session, bot) -> None:
     try:
         sponsor = await add_channel_sponsor(session, bot, message.text or "")
@@ -105,7 +108,7 @@ async def admin_receive_channel(message: Message, state: FSMContext, session, bo
     )
 
 
-@router_admin.callback_query(F.data == "admin:sponsor:add_bot", IsAdmin)
+@router_admin.callback_query(F.data == "admin:sponsor:add_bot", IsAdmin())
 async def admin_add_bot(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.sponsor_bot_link)
     await callback.message.edit_text(
@@ -115,7 +118,7 @@ async def admin_add_bot(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router_admin.message(AdminStates.sponsor_bot_link, IsAdmin)
+@router_admin.message(AdminStates.sponsor_bot_link, IsAdmin())
 async def admin_receive_bot(message: Message, state: FSMContext, session) -> None:
     try:
         sponsor = await add_bot_sponsor(session, message.text or "")
@@ -129,7 +132,7 @@ async def admin_receive_bot(message: Message, state: FSMContext, session) -> Non
     )
 
 
-@router_admin.callback_query(F.data.startswith("admin:sponsor:del:"), IsAdmin)
+@router_admin.callback_query(F.data.startswith("admin:sponsor:del:"), IsAdmin())
 async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     sponsor_id = int(callback.data.split(":")[3])
     await delete_sponsor(session, sponsor_id)
@@ -140,11 +143,8 @@ async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     await callback.answer("Удалено")
 
 
-@router_admin.callback_query(F.data == "admin:tasks", IsAdmin)
+@router_admin.callback_query(F.data == "admin:tasks", IsAdmin())
 async def admin_tasks(callback: CallbackQuery, session) -> None:
-    from ..db.models import TaskItem
-    from sqlalchemy import select
-
     res = await session.execute(select(TaskItem).order_by(TaskItem.id))
     tasks = list(res.scalars().all())
     await callback.message.edit_text(
@@ -153,12 +153,8 @@ async def admin_tasks(callback: CallbackQuery, session) -> None:
     await callback.answer()
 
 
-@router_admin.callback_query(F.data.startswith("admin:task:del:"), IsAdmin)
+@router_admin.callback_query(F.data.startswith("admin:task:del:"), IsAdmin())
 async def admin_del_task(callback: CallbackQuery, session) -> None:
-    from sqlalchemy import select
-
-    from ..db.models import TaskItem
-
     task_id = int(callback.data.split(":")[3])
     task = await session.get(TaskItem, task_id)
     if task is not None:
@@ -172,7 +168,7 @@ async def admin_del_task(callback: CallbackQuery, session) -> None:
     await callback.answer("Удалено")
 
 
-@router_admin.callback_query(F.data.startswith("wd:paid:"), IsAdmin)
+@router_admin.callback_query(F.data.startswith("wd:paid:"), IsAdmin())
 async def admin_mark_paid(callback: CallbackQuery, session, bot) -> None:
     withdrawal_id = int(callback.data.split(":")[2])
     withdrawal = await mark_paid(session, withdrawal_id)
@@ -195,10 +191,32 @@ async def admin_mark_paid(callback: CallbackQuery, session, bot) -> None:
     await callback.answer("Отмечено как выплачено")
 
 
+@router_admin.callback_query(F.data == "admin:withdrawals", IsAdmin())
+async def admin_withdrawals(callback: CallbackQuery, session) -> None:
+    res = await session.execute(
+        select(Withdrawal)
+        .where(Withdrawal.status == "pending")
+        .order_by(Withdrawal.id)
+    )
+    items = list(res.scalars().all())
+    if not items:
+        text = "💸 Нет активных заявок."
+    else:
+        lines = ["💸 <b>Активные заявки на вывод:</b>\n"]
+        for w in items:
+            lines.append(
+                f"#{w.id} — {w.gift_name} ({w.gift_stars}★) → @{w.username_to} "
+                f"(id <code>{w.user_id}</code>)"
+            )
+        text = "\n".join(lines)
+    await callback.message.edit_text(text, reply_markup=admin_menu_kb())
+    await callback.answer()
+
+
 TASK_TYPE_LABELS = {"channel": "канал", "bot": "бот"}
 
 
-@router_admin.callback_query(F.data == "admin:task:add", IsAdmin)
+@router_admin.callback_query(F.data == "admin:task:add", IsAdmin())
 async def admin_task_add(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.task_type)
     await callback.message.edit_text(
@@ -209,7 +227,7 @@ async def admin_task_add(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router_admin.message(AdminStates.task_type, IsAdmin)
+@router_admin.message(AdminStates.task_type, IsAdmin())
 async def admin_task_type(message: Message, state: FSMContext) -> None:
     value = (message.text or "").strip().lower()
     if value not in TASK_TYPE_LABELS:
@@ -220,25 +238,22 @@ async def admin_task_type(message: Message, state: FSMContext) -> None:
     await message.answer("Отправь ссылку (@username или t.me/...).")
 
 
-@router_admin.message(AdminStates.task_link, IsAdmin)
+@router_admin.message(AdminStates.task_link, IsAdmin())
 async def admin_task_link(message: Message, state: FSMContext) -> None:
     await state.update_data(url=(message.text or "").strip())
     await state.set_state(AdminStates.task_title)
     await message.answer("Отправь название задания.")
 
 
-@router_admin.message(AdminStates.task_title, IsAdmin)
+@router_admin.message(AdminStates.task_title, IsAdmin())
 async def admin_task_title(message: Message, state: FSMContext) -> None:
     await state.update_data(title=(message.text or "").strip())
     await state.set_state(AdminStates.task_reward)
     await message.answer("Сколько звёзд за задание? Например 0.5")
 
 
-@router_admin.message(AdminStates.task_reward, IsAdmin)
+@router_admin.message(AdminStates.task_reward, IsAdmin())
 async def admin_task_reward(message: Message, state: FSMContext, session) -> None:
-    from ..db.models import TaskItem
-    from ..utils.stars import stars_to_tenths
-
     try:
         reward = stars_to_tenths(float((message.text or "").replace(",", ".")))
     except ValueError:
@@ -246,7 +261,6 @@ async def admin_task_reward(message: Message, state: FSMContext, session) -> Non
         return
 
     data = await state.get_data()
-    from ..services.subscriptions import parse_chat_ref
 
     try:
         chat_ref = parse_chat_ref(data["url"])
@@ -270,7 +284,7 @@ async def admin_task_reward(message: Message, state: FSMContext, session) -> Non
     )
 
 
-@router_admin.callback_query(F.data == "admin:broadcast", IsAdmin)
+@router_admin.callback_query(F.data == "admin:broadcast", IsAdmin())
 async def admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.broadcast_text)
     await callback.message.edit_text(
@@ -279,12 +293,8 @@ async def admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router_admin.message(AdminStates.broadcast_text, IsAdmin)
+@router_admin.message(AdminStates.broadcast_text, IsAdmin())
 async def admin_broadcast_send(message: Message, state: FSMContext, session, bot) -> None:
-    from sqlalchemy import select
-
-    from ..db.models import Broadcast, User
-
     await state.clear()
     res = await session.execute(select(User.id).where(User.is_blocked.is_(False)))
     user_ids = list(res.scalars().all())

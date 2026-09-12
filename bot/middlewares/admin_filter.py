@@ -5,9 +5,8 @@ from aiogram.types import TelegramObject
 
 
 class IsAdmin(BaseFilter):
-    def __init__(self, admin_ids):
-        self.admin_ids = set(admin_ids)
-
-    async def __call__(self, event: TelegramObject) -> bool:
+    async def __call__(self, event: TelegramObject, admin_ids=None) -> bool:
+        if not admin_ids:
+            return False
         user = getattr(event, "from_user", None)
-        return user is not None and user.id in self.admin_ids
+        return user is not None and user.id in set(admin_ids)
