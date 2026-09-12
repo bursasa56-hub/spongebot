@@ -49,6 +49,11 @@ async def count_sponsor_completions(session: AsyncSession, sponsor_id: int) -> i
     ).scalar_one()
 
 
+async def all_sponsors(session: AsyncSession) -> list[Sponsor]:
+    res = await session.execute(select(Sponsor).order_by(Sponsor.id))
+    return list(res.scalars().all())
+
+
 async def active_sponsors(session: AsyncSession) -> list[Sponsor]:
     from datetime import datetime
 

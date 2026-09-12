@@ -9,6 +9,7 @@ from bot.services.subscriptions import (
     add_bot_sponsor,
     add_channel_sponsor,
     active_sponsors,
+    all_sponsors,
     delete_sponsor,
     mark_sponsor_done,
     missing_sponsors,
@@ -146,3 +147,20 @@ async def test_channel_completion_recorded(session):
         )
     )
     assert res.scalar_one_or_none() is not None
+
+
+@pytest.mark.asyncio
+async def test_all_sponsors_includes_expired_and_quota_reached(session):
+    expired = await add_bot_sponsor(session, "@expired_bot")
+    expired.expires_at = datetime.utcnow() - timedelta(hours=1)
+    await session.commit()
+
+    quota = await add_bot_sponsor(session, "@quota_bot")
+    quota.max_completions = 1
+    await session.commit()
+    assert await mark_sponsor_done(session, 1, quota.id) is True
+
+    assert await active_sponsors(session) == []
+
+    ids = [s.id for s in await all_sponsors(session)]
+    assert ids == [expired.id, quota.id]

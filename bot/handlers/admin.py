@@ -31,9 +31,9 @@ from ..services.snippets import build_snippet
 from ..services.stats import get_stats
 from ..services.subscriptions import (
     SponsorError,
-    active_sponsors,
     add_bot_sponsor,
     add_channel_sponsor,
+    all_sponsors,
     delete_sponsor,
     parse_chat_ref,
     sponsor_status,
@@ -187,7 +187,7 @@ async def admin_settings_api_url_save(message: Message, state: FSMContext, sessi
 
 @router_admin.callback_query(F.data == "admin:sponsors", IsAdmin())
 async def admin_sponsors(callback: CallbackQuery, session) -> None:
-    sponsors = await active_sponsors(session)
+    sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
     await callback.message.edit_text(
         "📢 <b>Обязательные спонсоры</b>",
@@ -324,7 +324,7 @@ async def admin_sponsor_code(callback: CallbackQuery, session) -> None:
 async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     sponsor_id = int(callback.data.split(":")[3])
     await delete_sponsor(session, sponsor_id)
-    sponsors = await active_sponsors(session)
+    sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
     await callback.message.edit_text(
         "📢 <b>Обязательные спонсоры</b>",

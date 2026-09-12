@@ -76,3 +76,11 @@ def test_sponsors_admin_kb_shows_id_and_code_for_bot():
     assert any("#5" in text for text in texts)
     assert "admin:sponsor:del:5" in callbacks
     assert "admin:sponsor:code:5" in callbacks
+
+
+def test_sponsors_admin_kb_renders_status_text():
+    sponsor = Sponsor(id=9, type="bot", title="@expired", url="https://t.me/expired")
+    kb = sponsors_admin_kb([sponsor], {9: "истёк"})
+    texts = [b.text for row in kb.inline_keyboard for b in row]
+    assert any("истёк" in text for text in texts)
+    assert "admin:sponsor:code:9" in _callbacks(kb)
