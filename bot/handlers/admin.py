@@ -13,6 +13,7 @@ from sqlalchemy import select
 from ..db.models import Broadcast, Sponsor, TaskItem, User, Withdrawal
 from ..keyboards.admin import (
     admin_menu_kb,
+    back_to_admin_kb,
     partner_choice_kb,
     partners_admin_kb,
     settings_admin_kb,
@@ -124,7 +125,7 @@ async def admin_partners(callback: CallbackQuery, session) -> None:
 async def admin_partner_add(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.partner_name)
     await callback.message.answer(
-        "Отправь название партнёра.", reply_markup=admin_menu_kb()
+        "Отправь название партнёра.", reply_markup=back_to_admin_kb()
     )
     await callback.answer()
 
@@ -186,7 +187,7 @@ async def admin_settings_api_url(callback: CallbackQuery, state: FSMContext) -> 
     await state.set_state(AdminStates.settings_api_url)
     await callback.message.answer(
         "Отправь базовый адрес API, например https://example.com",
-        reply_markup=admin_menu_kb(),
+        reply_markup=back_to_admin_kb(),
     )
     await callback.answer()
 
@@ -237,7 +238,7 @@ async def admin_sponsor_type(callback: CallbackQuery, state: FSMContext) -> None
         )
     else:
         text = "Отправь ссылку на бота (@username или t.me/...)."
-    await callback.message.answer(text, reply_markup=admin_menu_kb())
+    await callback.message.answer(text, reply_markup=back_to_admin_kb())
     await callback.answer()
 
 
@@ -257,7 +258,9 @@ async def admin_sponsor_duration(callback: CallbackQuery, state: FSMContext) -> 
         )
     else:
         await state.set_state(AdminStates.sponsor_hours)
-        await callback.message.answer("Сколько часов?")
+        await callback.message.answer(
+            "Сколько часов?", reply_markup=back_to_admin_kb()
+        )
     await callback.answer()
 
 
@@ -284,7 +287,9 @@ async def admin_sponsor_quota_choice(
         await _after_quota(bot, callback.message, state, session)
     else:
         await state.set_state(AdminStates.sponsor_quota)
-        await callback.message.answer("Сколько прохождений?")
+        await callback.message.answer(
+            "Сколько прохождений?", reply_markup=back_to_admin_kb()
+        )
     await callback.answer()
 
 
@@ -400,9 +405,9 @@ async def admin_del_task(callback: CallbackQuery, session) -> None:
     task_id = int(callback.data.split(":")[3])
     task = await session.get(TaskItem, task_id)
     if task is not None:
-        task.active = False
+        await session.delete(task)
         await session.commit()
-    res = await session.execute(select(TaskItem).where(TaskItem.active.is_(True)))
+    res = await session.execute(select(TaskItem))
     tasks = list(res.scalars().all())
     await callback.message.answer(
         "📋 <b>Задания</b>", reply_markup=tasks_admin_kb(tasks)
@@ -484,7 +489,7 @@ async def admin_task_type(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(type=task_type)
     await state.set_state(AdminStates.task_link)
     await callback.message.answer(
-        "Отправь ссылку (@username или t.me/...).", reply_markup=admin_menu_kb()
+        "Отправь ссылку (@username или t.me/...).", reply_markup=back_to_admin_kb()
     )
     await callback.answer()
 
@@ -493,14 +498,18 @@ async def admin_task_type(callback: CallbackQuery, state: FSMContext) -> None:
 async def admin_task_link(message: Message, state: FSMContext) -> None:
     await state.update_data(url=(message.text or "").strip())
     await state.set_state(AdminStates.task_title)
-    await message.answer("Отправь название задания.")
+    await message.answer(
+        "Отправь название задания.", reply_markup=back_to_admin_kb()
+    )
 
 
 @router_admin.message(AdminStates.task_title, IsAdmin())
 async def admin_task_title(message: Message, state: FSMContext) -> None:
     await state.update_data(title=(message.text or "").strip())
     await state.set_state(AdminStates.task_reward)
-    await message.answer("Сколько звёзд за задание? Например 0.5")
+    await message.answer(
+        "Сколько звёзд за задание? Например 0.5", reply_markup=back_to_admin_kb()
+    )
 
 
 @router_admin.message(AdminStates.task_reward, IsAdmin())
@@ -508,7 +517,7 @@ async def admin_task_reward(message: Message, state: FSMContext, session) -> Non
     try:
         reward = stars_to_tenths(float((message.text or "").replace(",", ".")))
     except ValueError:
-        await message.answer("Введи число, например 0.5")
+        await message.answer("Введи число, например 0.5", reply_markup=back_to_admin_kb())
         return
 
     await state.update_data(reward=reward)
@@ -576,7 +585,7 @@ async def admin_task_code(callback: CallbackQuery, session) -> None:
 async def admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.broadcast_text)
     await callback.message.answer(
-        "Отправь текст рассылки.", reply_markup=admin_menu_kb()
+        "Отправь текст рассылки.", reply_markup=back_to_admin_kb()
     )
     await callback.answer()
 

@@ -1,5 +1,6 @@
 import pytest
 
+from bot.db.models import TaskItem
 from bot.handlers import admin as admin_handlers
 from bot.services.partners import create_partner
 from tests.fakes import FakeBot, FakeChat
@@ -135,5 +136,20 @@ async def test_task_type_bot_stores_type_and_asks_link():
 
     assert (await state.get_data())["type"] == "bot"
     assert state.state == admin_handlers.AdminStates.task_link
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_admin_del_task_hard_deletes(session):
+    task = TaskItem(type="channel", title="T", url="u", chat_id="@t")
+    session.add(task)
+    await session.commit()
+    task_id = task.id
+    callback = FakeCallback(f"admin:task:del:{task_id}")
+
+    await admin_handlers.admin_del_task(callback, session)
+
+    assert await session.get(TaskItem, task_id) is None
     assert callback.message.answers
     assert callback.answered is True

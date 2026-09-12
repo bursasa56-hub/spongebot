@@ -18,6 +18,10 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
     )
 
 
+def back_to_admin_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("⬅️ Назад", "admin:menu")]])
+
+
 def partners_admin_kb(partners) -> InlineKeyboardMarkup:
     rows = [[_btn("➕ Добавить партнёра", "admin:partner:add")]]
     for p in partners:

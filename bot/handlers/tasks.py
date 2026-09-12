@@ -27,14 +27,19 @@ def task_text(task) -> str:
 
 @router_tasks.callback_query(F.data == MENU_TASKS)
 async def show_tasks(callback: CallbackQuery, session) -> None:
-    task = await next_task(session, callback.from_user.id)
-    if task is None:
+    tasks = await available_tasks(session, callback.from_user.id)
+    if not tasks:
         await callback.message.answer(
-            "📋 Пока нет доступных заданий. Заходи позже!", reply_markup=main_menu_kb()
+            "📋 Пока нет доступных заданий (доступно: 0). Заходи позже!",
+            reply_markup=main_menu_kb(),
         )
         await callback.answer()
         return
-    await callback.message.answer(task_text(task), reply_markup=task_kb(task))
+    task = tasks[0]
+    await callback.message.answer(
+        f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_text(task),
+        reply_markup=task_kb(task),
+    )
     await callback.answer()
 
 
