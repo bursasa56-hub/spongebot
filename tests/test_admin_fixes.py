@@ -3,7 +3,7 @@ import pytest
 from bot.db.models import TaskItem
 from bot.handlers import admin as admin_handlers
 from bot.services.partners import create_partner
-from bot.services.promos import list_promos
+from bot.services.promos import create_promo, list_promos
 from tests.fakes import FakeBot, FakeChat
 
 
@@ -131,6 +131,32 @@ async def test_admin_promo_uses_creates_promo(session):
     assert "SALE" in message.answers[-1][0]
     promos = await list_promos(session)
     assert [p.code for p in promos] == ["SALE"]
+
+
+@pytest.mark.asyncio
+async def test_admin_promo_uses_duplicate_code_resets_to_code_state(session):
+    await create_promo(session, "SALE", 5, 0)
+    message = FakeMessage("10")
+    state = FakeState({"code": "SALE", "stars": 5})
+
+    await admin_handlers.admin_promo_uses(message, state, session)
+
+    assert state.state == admin_handlers.AdminStates.promo_code
+    assert message.answers
+    assert "заново" in message.answers[-1][0]
+    assert len(await list_promos(session)) == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_promo_del_removes_promo(session):
+    promo = await create_promo(session, "TMP", 1, 0)
+    callback = FakeCallback(f"admin:promo:del:{promo.id}")
+
+    await admin_handlers.admin_promo_del(callback, session)
+
+    assert await list_promos(session) == []
+    assert callback.message.answers
+    assert callback.answered is True
 
 
 @pytest.mark.asyncio

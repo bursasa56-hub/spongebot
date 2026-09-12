@@ -480,7 +480,12 @@ async def admin_promo_uses(message: Message, state: FSMContext, session) -> None
     try:
         promo = await create_promo(session, data["code"], data["stars"], max_uses)
     except PromoError as exc:
-        await message.answer(f"❌ {exc}", reply_markup=back_to_admin_kb())
+        await state.clear()
+        await state.set_state(AdminStates.promo_code)
+        await message.answer(
+            f"❌ {exc}\nОтправь промокод заново.",
+            reply_markup=back_to_admin_kb(),
+        )
         return
     await state.clear()
     await message.answer(
@@ -492,12 +497,16 @@ async def admin_promo_uses(message: Message, state: FSMContext, session) -> None
 @router_admin.callback_query(F.data.startswith("admin:promo:del:"), IsAdmin())
 async def admin_promo_del(callback: CallbackQuery, session) -> None:
     promo_id = int(callback.data.split(":")[3])
-    await delete_promo(session, promo_id)
+    deleted = False
+    try:
+        deleted = await delete_promo(session, promo_id)
+    except Exception:
+        deleted = False
     promos = await list_promos(session)
     await callback.message.answer(
         "🎟 <b>Промокоды</b>", reply_markup=promos_admin_kb(promos)
     )
-    await callback.answer("Удалено")
+    await callback.answer("Удалено" if deleted else "Промокод не найден.")
 
 
 @router_admin.callback_query(F.data == "admin:tasks", IsAdmin())
