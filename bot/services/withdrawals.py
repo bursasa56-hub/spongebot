@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User, Withdrawal
@@ -26,6 +27,14 @@ async def create_withdrawal(
     required = gift_stars * 10
     if user.balance_tenths < required:
         raise WithdrawalError("Недостаточно звёзд для этого подарка.")
+
+    pending = await session.execute(
+        select(Withdrawal).where(
+            Withdrawal.user_id == user_id, Withdrawal.status == "pending"
+        )
+    )
+    if pending.scalar_one_or_none() is not None:
+        raise WithdrawalError("У вас уже есть активная заявка на вывод.")
 
     withdrawal = Withdrawal(
         user_id=user_id,

@@ -43,3 +43,20 @@ async def test_mark_paid_idempotent(session):
     assert await mark_paid(session, w.id) is None
     user = await session.get(User, 1)
     assert user.balance_tenths == 50
+
+
+@pytest.mark.asyncio
+async def test_second_pending_withdrawal_rejected(session):
+    await _rich_user(session, tenths=400)
+    await create_withdrawal(session, 1, "bear", "Медвежонок", 15, "@friend")
+    with pytest.raises(WithdrawalError):
+        await create_withdrawal(session, 1, "bear", "Медвежонок", 15, "@friend2")
+
+
+@pytest.mark.asyncio
+async def test_new_withdrawal_allowed_after_paid(session):
+    await _rich_user(session, tenths=400)
+    w = await create_withdrawal(session, 1, "bear", "Медвежонок", 15, "@friend")
+    await mark_paid(session, w.id)
+    again = await create_withdrawal(session, 1, "bear", "Медвежонок", 15, "@friend")
+    assert again.status == "pending"

@@ -6,6 +6,7 @@ from bot.services.subscriptions import (
     add_channel_sponsor,
     active_sponsors,
     delete_sponsor,
+    mark_sponsor_done,
     missing_sponsors,
     parse_chat_ref,
 )
@@ -49,13 +50,55 @@ async def test_add_bot_sponsor(session):
 
 
 @pytest.mark.asyncio
-async def test_missing_sponsors(session):
-    await add_bot_sponsor(session, "@partner_bot")
+async def test_missing_sponsors_channel_membership(session):
+    admin_bot = FakeBot(
+        member_status="administrator", chat=FakeChat(-100, "Chan", "chan")
+    )
+    await add_channel_sponsor(session, admin_bot, "@chan")
+
     bot_ok = FakeBot(member_status="member")
     assert await missing_sponsors(session, bot_ok, 1) == []
 
     bot_no = FakeBot(raise_member=True)
     assert len(await missing_sponsors(session, bot_no, 1)) == 1
+
+
+@pytest.mark.asyncio
+async def test_bot_sponsor_requires_partner_confirmation(session):
+    sponsor = await add_bot_sponsor(session, "@partner_bot")
+    bot = FakeBot(member_status="member")
+
+    missing = await missing_sponsors(session, bot, 1)
+    assert [s.id for s in missing] == [sponsor.id]
+    assert bot.member_calls == []
+
+    assert await mark_sponsor_done(session, 1, sponsor.id) is True
+    assert await missing_sponsors(session, bot, 1) == []
+    assert bot.member_calls == []
+    assert await mark_sponsor_done(session, 1, sponsor.id) is False
+
+
+@pytest.mark.asyncio
+async def test_add_channel_sponsor_private_uses_invite_link(session):
+    chat = FakeChat(-100, "Private", None)
+    bot = FakeBot(
+        member_status="administrator",
+        chat=chat,
+        invite_link="https://t.me/+abc",
+    )
+    sponsor = await add_channel_sponsor(session, bot, "-100")
+    assert sponsor.chat_id == "-100"
+    assert sponsor.url == "https://t.me/+abc"
+
+
+@pytest.mark.asyncio
+async def test_add_channel_sponsor_private_invite_failure(session):
+    chat = FakeChat(-100, "Private", None)
+    bot = FakeBot(
+        member_status="administrator", chat=chat, raise_invite=True
+    )
+    with pytest.raises(SponsorError):
+        await add_channel_sponsor(session, bot, "-100")
 
 
 @pytest.mark.asyncio

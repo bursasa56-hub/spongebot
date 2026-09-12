@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from ..utils.gifts import FIXED_GIFTS
@@ -62,7 +64,10 @@ def task_kb(task) -> InlineKeyboardMarkup:
 
 
 def earn_kb(ref_link: str) -> InlineKeyboardMarkup:
-    share = f"https://t.me/share/url?url={ref_link}&text=Заработай звёзды!"
+    share = (
+        f"https://t.me/share/url?url={quote(ref_link, safe='')}"
+        f"&text={quote('Заработай звёзды!')}"
+    )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📤 Поделиться", url=share)],

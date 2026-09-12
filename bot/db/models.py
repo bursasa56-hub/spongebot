@@ -70,6 +70,16 @@ class UserTask(Base):
     completed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class UserSponsor(Base):
+    __tablename__ = "user_sponsors"
+    __table_args__ = (UniqueConstraint("user_id", "sponsor_id", name="uq_user_sponsor"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    sponsor_id: Mapped[int] = mapped_column(Integer, ForeignKey("sponsors.id"))
+    completed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Withdrawal(Base):
     __tablename__ = "withdrawals"
 

@@ -4,7 +4,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from ..keyboards.user import MENU_TASKS, main_menu_kb, task_kb
-from ..services.tasks import available_tasks, complete_task, is_channel_member
+from ..services.tasks import available_tasks, complete_task, self_verifiable
 from ..utils.stars import format_stars
 
 router_tasks = Router()
@@ -48,11 +48,16 @@ async def check_task(callback: CallbackQuery, session, bot) -> None:
         await callback.answer("Задание недоступно.", show_alert=True)
         return
 
-    if task.type == "channel":
-        ok = await is_channel_member(bot, task.chat_id or task.url, callback.from_user.id)
-        if not ok:
-            await callback.answer("❌ Вы ещё не подписались.", show_alert=True)
-            return
+    if task.type == "bot":
+        await callback.answer(
+            "Сначала нажмите /start у партнёрского бота — задание засчитается автоматически.",
+            show_alert=True,
+        )
+        return
+
+    if not await self_verifiable(bot, task, callback.from_user.id):
+        await callback.answer("❌ Вы ещё не подписались.", show_alert=True)
+        return
 
     done = await complete_task(session, callback.from_user.id, task_id)
     if done is None:

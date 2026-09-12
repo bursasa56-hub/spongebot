@@ -9,7 +9,7 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 
 from .config import Config, load_config
-from .db.session import create_engine, init_db, make_session_factory
+from .db.session import create_engine, ensure_db_dir, init_db, make_session_factory
 from .handlers.admin import router_admin
 from .handlers.start import router_start
 from .handlers.tasks import router_tasks
@@ -42,6 +42,7 @@ def build_dispatcher(config: Config, session_factory) -> Dispatcher:
 
 async def main() -> None:
     config = load_config()
+    ensure_db_dir(config.db_path)
     engine = create_engine(config.db_path)
     await init_db(engine)
     session_factory = make_session_factory(engine)

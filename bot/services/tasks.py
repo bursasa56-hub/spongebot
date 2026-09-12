@@ -45,3 +45,9 @@ async def complete_task(
 
 async def is_channel_member(bot, chat_id: str, user_id: int) -> bool:
     return await is_member(bot, chat_id, user_id)
+
+
+async def self_verifiable(bot, task, user_id: int) -> bool:
+    if task.type != "channel":
+        return False
+    return await is_channel_member(bot, task.chat_id or task.url, user_id)

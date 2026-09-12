@@ -4,6 +4,7 @@ from aiogram import F, Router
 from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
 
+from ..db.models import User
 from ..keyboards.user import CHECK_SUBS, MENU_MAIN, main_menu_kb, sponsor_gate_kb
 from ..services.referral import credit_referrer, register_user
 from ..services.subscriptions import missing_sponsors
@@ -37,6 +38,11 @@ async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None
 
 
 async def _credit_and_notify(session, bot, user_id: int) -> None:
+    user = await session.get(User, user_id)
+    if user is not None and not user.subscribed:
+        user.subscribed = True
+        await session.commit()
+
     referrer = await credit_referrer(session, user_id)
     if referrer is not None:
         try:

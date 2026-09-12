@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from ..db.models import TaskItem
+from ..db.models import Sponsor, TaskItem
+from .subscriptions import mark_sponsor_done
 from .tasks import complete_task
 
 
@@ -18,8 +19,32 @@ def create_partner_app(session_factory, api_key: str) -> web.Application:
         if data.get("api_key") != api_key:
             return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
+        has_task = data.get("task_id") is not None
+        has_sponsor = data.get("sponsor_id") is not None
+        if not has_task and not has_sponsor:
+            return web.json_response({"ok": False, "error": "bad_payload"}, status=400)
+
         try:
             user_id = int(data["user_id"])
+        except (KeyError, TypeError, ValueError):
+            return web.json_response({"ok": False, "error": "bad_payload"}, status=400)
+
+        if has_sponsor:
+            try:
+                sponsor_id = int(data["sponsor_id"])
+            except (TypeError, ValueError):
+                return web.json_response({"ok": False, "error": "bad_payload"}, status=400)
+
+            async with session_factory() as session:
+                sponsor = await session.get(Sponsor, sponsor_id)
+                if sponsor is None or not sponsor.active or sponsor.type != "bot":
+                    return web.json_response(
+                        {"ok": False, "error": "sponsor_not_found"}, status=404
+                    )
+                credited = await mark_sponsor_done(session, user_id, sponsor_id)
+                return web.json_response({"ok": True, "credited": credited})
+
+        try:
             task_id = int(data["task_id"])
         except (KeyError, TypeError, ValueError):
             return web.json_response({"ok": False, "error": "bad_payload"}, status=400)

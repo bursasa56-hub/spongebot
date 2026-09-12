@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import html
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import select
 
 from ..db.models import Broadcast, TaskItem, User, Withdrawal
@@ -103,7 +105,7 @@ async def admin_receive_channel(message: Message, state: FSMContext, session, bo
         return
     await state.clear()
     await message.answer(
-        f"✅ Канал «{sponsor.title}» добавлен в обязательные.",
+        f"✅ Канал «{html.escape(sponsor.title)}» добавлен в обязательные.",
         reply_markup=admin_menu_kb(),
     )
 
@@ -127,7 +129,7 @@ async def admin_receive_bot(message: Message, state: FSMContext, session) -> Non
         return
     await state.clear()
     await message.answer(
-        f"✅ Бот {sponsor.title} добавлен в обязательные.",
+        f"✅ Бот {html.escape(sponsor.title)} добавлен в обязательные.",
         reply_markup=admin_menu_kb(),
     )
 
@@ -209,7 +211,23 @@ async def admin_withdrawals(callback: CallbackQuery, session) -> None:
                 f"(id <code>{w.user_id}</code>)"
             )
         text = "\n".join(lines)
-    await callback.message.edit_text(text, reply_markup=admin_menu_kb())
+
+    rows = []
+    for w in items:
+        if w.admin_chat_id is not None and w.admin_msg_id is not None:
+            internal = str(w.admin_chat_id).removeprefix("-100")
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"#{w.id}",
+                        url=f"https://t.me/c/{internal}/{w.admin_msg_id}",
+                    )
+                ]
+            )
+    rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:menu")])
+    await callback.message.edit_text(
+        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+    )
     await callback.answer()
 
 

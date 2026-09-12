@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.models import Sponsor
+from ..db.models import Sponsor, UserSponsor
 
 MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 
@@ -47,9 +47,31 @@ async def active_sponsors(session: AsyncSession) -> list[Sponsor]:
 async def missing_sponsors(session: AsyncSession, bot, user_id: int) -> list[Sponsor]:
     missing = []
     for sponsor in await active_sponsors(session):
-        if not await is_member(bot, sponsor.chat_id or sponsor.url, user_id):
+        if sponsor.type == "bot":
+            done = await session.execute(
+                select(UserSponsor).where(
+                    UserSponsor.user_id == user_id,
+                    UserSponsor.sponsor_id == sponsor.id,
+                )
+            )
+            if done.scalar_one_or_none() is None:
+                missing.append(sponsor)
+        elif not await is_member(bot, sponsor.chat_id or sponsor.url, user_id):
             missing.append(sponsor)
     return missing
+
+
+async def mark_sponsor_done(session: AsyncSession, user_id: int, sponsor_id: int) -> bool:
+    existing = await session.execute(
+        select(UserSponsor).where(
+            UserSponsor.user_id == user_id, UserSponsor.sponsor_id == sponsor_id
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return False
+    session.add(UserSponsor(user_id=user_id, sponsor_id=sponsor_id))
+    await session.commit()
+    return True
 
 
 async def add_channel_sponsor(session: AsyncSession, bot, link: str) -> Sponsor:
@@ -80,7 +102,16 @@ async def add_channel_sponsor(session: AsyncSession, bot, link: str) -> Sponsor:
 
     title = getattr(chat, "title", None) or chat_ref
     username = getattr(chat, "username", None)
-    url = f"https://t.me/{username}" if username else str(chat.id)
+    if username:
+        url = f"https://t.me/{username}"
+    else:
+        try:
+            invite = await bot.create_chat_invite_link(chat.id)
+        except Exception as exc:
+            raise SponsorError(
+                "У канала нет публичного @username и не удалось создать ссылку-приглашение."
+            ) from exc
+        url = invite.invite_link
     sponsor = Sponsor(type="channel", title=title, url=url, chat_id=str(chat.id))
     session.add(sponsor)
     await session.commit()

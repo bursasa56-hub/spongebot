@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import re
 
 from aiogram import F, Router
@@ -107,7 +108,7 @@ async def receive_username(
     admin_text = (
         "💸 <b>Новая заявка на вывод</b>\n\n"
         f"🎁 Подарок: {gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}\n"
-        f"👤 Заказчик: {message.from_user.full_name} "
+        f"👤 Заказчик: {html.escape(message.from_user.full_name)} "
         f"(@{message.from_user.username or '—'}, <code>{message.from_user.id}</code>)\n"
         f"📥 Вывести на: @{username}\n"
         f"🕒 Заявка #{withdrawal.id}"

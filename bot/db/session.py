@@ -11,6 +11,16 @@ from ..utils.gifts import FIXED_GIFTS
 from .models import Base, Gift
 
 
+def ensure_db_dir(db_path: str) -> None:
+    if db_path == ":memory:":
+        return
+    from pathlib import Path
+
+    parent = Path(db_path).parent
+    if str(parent):
+        parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_engine(db_path: str) -> AsyncEngine:
     if db_path == ":memory:":
         url = "sqlite+aiosqlite:///:memory:"
