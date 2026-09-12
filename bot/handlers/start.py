@@ -8,6 +8,7 @@ from ..db.models import User
 from ..keyboards.user import CHECK_SUBS, MENU_MAIN, main_menu_kb, sponsor_gate_kb
 from ..services.referral import credit_referrer, register_user
 from ..services.subscriptions import missing_sponsors
+from ..utils.assets import send_screen
 from ..utils.stars import format_stars
 
 router_start = Router()
@@ -33,7 +34,7 @@ def parse_ref(payload: str | None) -> int | None:
 
 
 async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None:
-    await message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
+    await send_screen(message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
 
 
 async def _credit_and_notify(session, bot, user_id: int) -> None:
@@ -89,7 +90,9 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
     await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
-    await callback.message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
+    await send_screen(
+        callback.message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu"
+    )
 
 
 @router_start.callback_query(F.data == MENU_MAIN)
@@ -102,5 +105,7 @@ async def back_to_main(callback: CallbackQuery, session, bot) -> None:
         )
         await callback.answer()
         return
-    await callback.message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
+    await send_screen(
+        callback.message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu"
+    )
     await callback.answer()

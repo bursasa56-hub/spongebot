@@ -12,6 +12,7 @@ from ..keyboards.admin import withdraw_admin_kb
 from ..keyboards.user import MENU_WITHDRAW, cancel_kb, gifts_kb
 from ..services.referral import get_user
 from ..services.withdrawals import WithdrawalError, create_withdrawal
+from ..utils.assets import send_screen
 from ..utils.gifts import GIFTS_BY_ID
 from ..utils.stars import format_stars
 
@@ -38,17 +39,21 @@ def normalize_username(text: str) -> str | None:
 async def show_gifts(callback: CallbackQuery, session) -> None:
     user = await get_user(session, callback.from_user.id)
     if user.balance_tenths < 150:
-        await callback.message.answer(
+        await send_screen(
+            callback.message,
             f"💸 Для вывода нужно минимум 15 ★.\n"
             f"Твой баланс: {format_stars(user.balance_tenths)}.",
-            reply_markup=cancel_kb(),
+            cancel_kb(),
+            asset="withdraw",
         )
         await callback.answer()
         return
-    await callback.message.answer(
+    await send_screen(
+        callback.message,
         f"💸 <b>Вывод звёзд</b>\n\nБаланс: {format_stars(user.balance_tenths)}\n\n"
         "Выбери подарок:",
-        reply_markup=gifts_kb(user.balance_tenths),
+        gifts_kb(user.balance_tenths),
+        asset="withdraw",
     )
     await callback.answer()
 

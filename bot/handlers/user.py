@@ -12,6 +12,7 @@ from ..keyboards.user import (
     instruction_kb,
 )
 from ..services.referral import count_referrals, get_user
+from ..utils.assets import send_screen
 from ..utils.stars import format_stars
 
 router_user = Router()
@@ -45,16 +46,19 @@ async def show_profile(callback: CallbackQuery, session, bot) -> None:
     user = await get_user(session, callback.from_user.id)
     invited = await count_referrals(session, user.id)
     me = await bot.get_me()
-    await callback.message.answer(
-        profile_text(user, me.username, invited), reply_markup=back_kb()
+    await send_screen(
+        callback.message,
+        profile_text(user, me.username, invited),
+        back_kb(),
+        asset="profile",
     )
     await callback.answer()
 
 
 @router_user.callback_query(F.data == MENU_INSTRUCTION)
 async def show_instruction(callback: CallbackQuery, support_url: str) -> None:
-    await callback.message.answer(
-        INSTRUCTION_TEXT, reply_markup=instruction_kb(support_url)
+    await send_screen(
+        callback.message, INSTRUCTION_TEXT, instruction_kb(support_url), asset="instruction"
     )
     await callback.answer()
 
