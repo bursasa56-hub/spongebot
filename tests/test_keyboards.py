@@ -1,6 +1,12 @@
 from urllib.parse import quote
 
-from bot.db.models import Sponsor, TaskItem
+from bot.db.models import Partner, Sponsor, TaskItem
+from bot.keyboards.admin import (
+    admin_menu_kb,
+    partner_choice_kb,
+    partners_admin_kb,
+    sponsors_admin_kb,
+)
 from bot.keyboards.user import earn_kb, gifts_kb, main_menu_kb, task_kb
 from bot.utils.gifts import FIXED_GIFTS
 
@@ -41,3 +47,32 @@ def test_earn_kb_url_encodes_ref_link_and_text():
     assert " " not in url
     assert quote("https://t.me/my_bot?start=ref_1", safe="") in url
     assert quote("Заработай звёзды!") in url
+
+
+def test_admin_menu_has_partners_and_settings():
+    data = _callbacks(admin_menu_kb())
+    assert "admin:partners" in data
+    assert "admin:settings" in data
+
+
+def test_partner_choice_kb_has_no_partner_option():
+    kb = partner_choice_kb([], "admin:sponsor:partner")
+    assert "admin:sponsor:partner:0" in _callbacks(kb)
+
+
+def test_partners_admin_kb_renders_partner_row():
+    partner = Partner(id=3, name="Acme", api_key="k")
+    kb = partners_admin_kb([partner])
+    callbacks = _callbacks(kb)
+    assert "admin:partner:add" in callbacks
+    assert "admin:partner:del:3" in callbacks
+
+
+def test_sponsors_admin_kb_shows_id_and_code_for_bot():
+    sponsor = Sponsor(id=5, type="bot", title="@bot", url="https://t.me/bot")
+    kb = sponsors_admin_kb([sponsor], {5: "бессрочно"})
+    texts = [b.text for row in kb.inline_keyboard for b in row]
+    callbacks = _callbacks(kb)
+    assert any("#5" in text for text in texts)
+    assert "admin:sponsor:del:5" in callbacks
+    assert "admin:sponsor:code:5" in callbacks
