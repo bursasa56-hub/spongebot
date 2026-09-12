@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from ..db.models import Sponsor, TaskItem
+from ..db.models import Sponsor, TaskItem, User
 from .partners import verify_key
 from .subscriptions import mark_sponsor_done
 from .tasks import complete_task
@@ -40,9 +40,19 @@ def create_partner_app(session_factory) -> web.Application:
 
             async with session_factory() as session:
                 sponsor = await session.get(Sponsor, sponsor_id)
-                if sponsor is None or not sponsor.active or sponsor.type != "bot":
+                if (
+                    sponsor is None
+                    or not sponsor.active
+                    or sponsor.type != "bot"
+                    or sponsor.partner_id != partner.id
+                ):
                     return web.json_response(
                         {"ok": False, "error": "sponsor_not_found"}, status=404
+                    )
+                user = await session.get(User, user_id)
+                if user is None:
+                    return web.json_response(
+                        {"ok": False, "error": "user_not_found"}, status=404
                     )
                 credited = await mark_sponsor_done(session, user_id, sponsor_id)
                 return web.json_response({"ok": True, "credited": credited})
@@ -54,7 +64,12 @@ def create_partner_app(session_factory) -> web.Application:
 
         async with session_factory() as session:
             task = await session.get(TaskItem, task_id)
-            if task is None or not task.active or task.type != "bot":
+            if (
+                task is None
+                or not task.active
+                or task.type != "bot"
+                or task.partner_id != partner.id
+            ):
                 return web.json_response(
                     {"ok": False, "error": "task_not_found"}, status=404
                 )

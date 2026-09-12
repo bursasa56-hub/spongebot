@@ -92,7 +92,8 @@ async def admin_panel(message: Message) -> None:
 
 
 @router_admin.callback_query(F.data == "admin:menu", IsAdmin())
-async def admin_back(callback: CallbackQuery) -> None:
+async def admin_back(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     await callback.message.edit_text("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
     await callback.answer()
 
@@ -137,6 +138,21 @@ async def admin_partner_name(message: Message, state: FSMContext, session) -> No
         f"🔑 API-ключ: <code>{html.escape(partner.api_key)}</code>",
         reply_markup=admin_menu_kb(),
     )
+
+
+@router_admin.callback_query(F.data.startswith("admin:partner:key:"), IsAdmin())
+async def admin_partner_key(callback: CallbackQuery, session) -> None:
+    partner_id = int(callback.data.split(":")[3])
+    partner = await get_partner(session, partner_id)
+    if partner is None:
+        await callback.answer("Партнёр не найден.", show_alert=True)
+        return
+    await callback.message.answer(
+        f"🔑 <b>Ключ партнёра «{html.escape(partner.name)}»:</b>\n"
+        f"<code>{html.escape(partner.api_key)}</code>",
+        reply_markup=admin_menu_kb(),
+    )
+    await callback.answer()
 
 
 @router_admin.callback_query(F.data.startswith("admin:partner:del:"), IsAdmin())
@@ -509,7 +525,8 @@ async def _finish_task(message, state: FSMContext, session, partner_id) -> None:
     await session.commit()
     await state.clear()
     await message.answer(
-        f"✅ Задание «{task.title}» добавлено.", reply_markup=admin_menu_kb()
+        f"✅ Задание «{html.escape(task.title)}» добавлено.",
+        reply_markup=admin_menu_kb(),
     )
     if task.type == "bot":
         await _send_snippet(message, session, task.partner_id, task_id=task.id)

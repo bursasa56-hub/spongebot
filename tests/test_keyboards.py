@@ -66,6 +66,7 @@ def test_partners_admin_kb_renders_partner_row():
     callbacks = _callbacks(kb)
     assert "admin:partner:add" in callbacks
     assert "admin:partner:del:3" in callbacks
+    assert "admin:partner:key:3" in callbacks
 
 
 def test_sponsors_admin_kb_shows_id_and_code_for_bot():

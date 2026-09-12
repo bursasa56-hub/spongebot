@@ -10,11 +10,17 @@ from bot.services.partners import create_partner
 @pytest.mark.asyncio
 async def test_partner_confirm_flow(engine, session):
     session.add(User(id=5, username="u", first_name="U"))
-    task = TaskItem(type="bot", title="B", url="https://t.me/b", active=True)
+    partner = await create_partner(session, "P")
+    task = TaskItem(
+        type="bot",
+        title="B",
+        url="https://t.me/b",
+        active=True,
+        partner_id=partner.id,
+    )
     session.add(task)
     await session.commit()
     task_id = task.id
-    partner = await create_partner(session, "P")
     key = partner.api_key
 
     factory = make_session_factory(engine)
@@ -48,11 +54,13 @@ async def test_partner_confirm_flow(engine, session):
 @pytest.mark.asyncio
 async def test_partner_confirm_sponsor(engine, session):
     session.add(User(id=5, username="u", first_name="U"))
-    sponsor = Sponsor(type="bot", title="@b", url="https://t.me/b")
+    partner = await create_partner(session, "P")
+    sponsor = Sponsor(
+        type="bot", title="@b", url="https://t.me/b", partner_id=partner.id
+    )
     session.add(sponsor)
     await session.commit()
     sponsor_id = sponsor.id
-    partner = await create_partner(session, "P")
     key = partner.api_key
 
     factory = make_session_factory(engine)
@@ -114,5 +122,64 @@ async def test_partner_confirm_unknown_key(engine, session):
         json={"api_key": "unknown", "user_id": 5, "task_id": task_id},
     )
     assert resp.status == 403
+
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_partner_cannot_confirm_other_partners_resources(engine, session):
+    session.add(User(id=5, username="u", first_name="U"))
+    partner_a = await create_partner(session, "A")
+    partner_b = await create_partner(session, "B")
+    task = TaskItem(
+        type="bot",
+        title="TA",
+        url="https://t.me/ta",
+        active=True,
+        partner_id=partner_a.id,
+    )
+    sponsor = Sponsor(
+        type="bot",
+        title="@sa",
+        url="https://t.me/sa",
+        partner_id=partner_a.id,
+    )
+    session.add_all([task, sponsor])
+    await session.commit()
+    task_id = task.id
+    sponsor_id = sponsor.id
+
+    factory = make_session_factory(engine)
+    app = create_partner_app(factory)
+    client = TestClient(TestServer(app))
+    await client.start_server()
+
+    own_task = await client.post(
+        "/partner/confirm",
+        json={"api_key": partner_a.api_key, "user_id": 5, "task_id": task_id},
+    )
+    assert own_task.status == 200
+    assert (await own_task.json())["credited"] is True
+
+    other_task = await client.post(
+        "/partner/confirm",
+        json={"api_key": partner_b.api_key, "user_id": 5, "task_id": task_id},
+    )
+    assert other_task.status == 404
+    assert (await other_task.json())["error"] == "task_not_found"
+
+    other_sponsor = await client.post(
+        "/partner/confirm",
+        json={"api_key": partner_b.api_key, "user_id": 5, "sponsor_id": sponsor_id},
+    )
+    assert other_sponsor.status == 404
+    assert (await other_sponsor.json())["error"] == "sponsor_not_found"
+
+    missing_user = await client.post(
+        "/partner/confirm",
+        json={"api_key": partner_a.api_key, "user_id": 999, "sponsor_id": sponsor_id},
+    )
+    assert missing_user.status == 404
+    assert (await missing_user.json())["error"] == "user_not_found"
 
     await client.close()

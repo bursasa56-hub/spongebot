@@ -1349,6 +1349,12 @@ git commit -m "feat: bot statistics service"
 
 ### Task 9: Партнёрский HTTP API
 
+> **Актуализация:** партнёрские ключи хранятся в БД (таблица `partners`,
+> создаются в админ-панели), endpoint проверяет ключ по БД, и подтверждаются
+> только ресурсы, принадлежащие этому партнёру (`task.partner_id` /
+> `sponsor.partner_id`). Сигнатура `create_partner_app(session_factory)` —
+> без `api_key`.
+
 **Files:**
 - Create: `bot/services/partner_api.py`
 - Test: `tests/test_partner_api.py`
