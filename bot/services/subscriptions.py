@@ -105,10 +105,20 @@ async def missing_sponsors(session: AsyncSession, bot, user_id: int) -> list[Spo
             )
             if done.scalar_one_or_none() is None:
                 missing.append(sponsor)
-        elif not await is_member(bot, sponsor.chat_id or sponsor.url, user_id):
-            missing.append(sponsor)
-        else:
+            continue
+
+        recorded = await session.execute(
+            select(UserSponsor).where(
+                UserSponsor.user_id == user_id,
+                UserSponsor.sponsor_id == sponsor.id,
+            )
+        )
+        if recorded.scalar_one_or_none() is not None and sponsor.subtype == "private_request":
+            continue
+        if await is_member(bot, sponsor.chat_id or sponsor.url, user_id):
             await mark_sponsor_done(session, user_id, sponsor.id)
+        else:
+            missing.append(sponsor)
     return missing
 
 
@@ -130,6 +140,7 @@ async def add_channel_sponsor(
     bot,
     link: str,
     *,
+    subtype: str = "public_channel",
     expires_at=None,
     max_completions: int = 0,
     partner_id: int | None = None,
@@ -163,6 +174,16 @@ async def add_channel_sponsor(
     username = getattr(chat, "username", None)
     if username:
         url = f"https://t.me/{username}"
+    elif subtype == "private_request":
+        try:
+            invite = await bot.create_chat_invite_link(
+                chat.id, creates_join_request=True
+            )
+        except Exception as exc:
+            raise SponsorError(
+                "У канала нет публичного @username и не удалось создать ссылку-приглашение."
+            ) from exc
+        url = invite.invite_link
     else:
         try:
             invite = await bot.create_chat_invite_link(chat.id)
@@ -173,6 +194,7 @@ async def add_channel_sponsor(
         url = invite.invite_link
     sponsor = Sponsor(
         type="channel",
+        subtype=subtype,
         title=title,
         url=url,
         chat_id=str(chat.id),

@@ -107,6 +107,46 @@ async def test_add_channel_sponsor_private_invite_failure(session):
 
 
 @pytest.mark.asyncio
+async def test_add_channel_sponsor_default_public_subtype(session):
+    bot = FakeBot(member_status="administrator", chat=FakeChat(-100, "Chan", "chan"))
+    sponsor = await add_channel_sponsor(session, bot, "@chan")
+    assert sponsor.subtype == "public_channel"
+    assert sponsor.url == "https://t.me/chan"
+    assert bot.invite_calls == []
+
+
+@pytest.mark.asyncio
+async def test_add_channel_sponsor_private_request_join_link(session):
+    chat = FakeChat(-100, "Private", None)
+    bot = FakeBot(
+        member_status="administrator", chat=chat, invite_link="https://t.me/+jr"
+    )
+    sponsor = await add_channel_sponsor(
+        session, bot, "-100", subtype="private_request"
+    )
+    assert sponsor.subtype == "private_request"
+    assert sponsor.url == "https://t.me/+jr"
+    assert bot.invite_calls == [(-100, True)]
+
+
+@pytest.mark.asyncio
+async def test_private_request_missing_until_recorded_then_satisfied(session):
+    chat = FakeChat(-100, "Private", None)
+    admin_bot = FakeBot(member_status="administrator", chat=chat)
+    sponsor = await add_channel_sponsor(
+        session, admin_bot, "-100", subtype="private_request"
+    )
+
+    raising_bot = FakeBot(raise_member=True)
+    assert [s.id for s in await missing_sponsors(session, raising_bot, 5)] == [sponsor.id]
+
+    assert await mark_sponsor_done(session, 5, sponsor.id) is True
+    calls_before = list(raising_bot.member_calls)
+    assert await missing_sponsors(session, raising_bot, 5) == []
+    assert raising_bot.member_calls == calls_before
+
+
+@pytest.mark.asyncio
 async def test_delete_sponsor(session):
     sponsor = await add_bot_sponsor(session, "@partner_bot")
     assert await delete_sponsor(session, sponsor.id) is True

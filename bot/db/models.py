@@ -57,6 +57,7 @@ class Sponsor(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     type: Mapped[str] = mapped_column(String(16))
+    subtype: Mapped[str] = mapped_column(String(32), default="public_channel")
     title: Mapped[str] = mapped_column(String(255))
     url: Mapped[str] = mapped_column(String(255))
     chat_id: Mapped[str | None] = mapped_column(String(64))
@@ -135,3 +136,25 @@ class Gift(Base):
     name: Mapped[str] = mapped_column(String(64))
     emoji: Mapped[str] = mapped_column(String(8))
     stars: Mapped[int] = mapped_column(Integer)
+
+
+class PromoCode(Base):
+    __tablename__ = "promo_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    stars: Mapped[int] = mapped_column(Integer)
+    max_uses: Mapped[int] = mapped_column(Integer, default=0)
+    used_count: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PromoUse(Base):
+    __tablename__ = "promo_uses"
+    __table_args__ = (UniqueConstraint("user_id", "promo_id", name="uq_promo_use"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    promo_id: Mapped[int] = mapped_column(Integer, ForeignKey("promo_codes.id"))
+    used_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -12,7 +12,13 @@ from ..utils.stars import format_stars
 
 router_start = Router()
 
-WELCOME = "👋 Добро пожаловать в бота для заработка звёзд!"
+MAIN_MENU_TEXT = (
+    "👋 <b>Заработок звёзд</b>\n\n"
+    "💰 Приглашай друзей и выполняй задания — получай звёзды.\n"
+    "🎁 Звёзды выводятся подарком (от 15 до 100 ★).\n"
+    "🎟 Есть промокод? Активируй его кнопкой ниже.\n\n"
+    "Выбери раздел:"
+)
 
 
 def parse_ref(payload: str | None) -> int | None:
@@ -27,11 +33,7 @@ def parse_ref(payload: str | None) -> int | None:
 
 
 async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None:
-    text = (
-        f"{WELCOME}\n\n"
-        "Выбери раздел в меню ниже."
-    )
-    await message.answer(text, reply_markup=main_menu_kb())
+    await message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
 
 
 async def _credit_and_notify(session, bot, user_id: int) -> None:
@@ -87,9 +89,7 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
     await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
-    await callback.message.answer(
-        f"{WELCOME}\n\nВыбери раздел в меню ниже.", reply_markup=main_menu_kb()
-    )
+    await callback.message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
 
 
 @router_start.callback_query(F.data == MENU_MAIN)
@@ -102,7 +102,5 @@ async def back_to_main(callback: CallbackQuery, session, bot) -> None:
         )
         await callback.answer()
         return
-    await callback.message.answer(
-        f"{WELCOME}\n\nВыбери раздел в меню ниже.", reply_markup=main_menu_kb()
-    )
+    await callback.message.answer(MAIN_MENU_TEXT, reply_markup=main_menu_kb())
     await callback.answer()

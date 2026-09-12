@@ -32,6 +32,7 @@ class FakeBot:
         self._invite_link = invite_link
         self._raise_invite = raise_invite
         self.member_calls = []
+        self.invite_calls = []
 
     async def get_chat(self, chat_id):
         if self._chat is None:
@@ -44,7 +45,8 @@ class FakeBot:
             raise RuntimeError("not a member")
         return FakeMember(self._member_status)
 
-    async def create_chat_invite_link(self, chat_id):
+    async def create_chat_invite_link(self, chat_id, creates_join_request=False):
+        self.invite_calls.append((chat_id, creates_join_request))
         if self._raise_invite:
             raise RuntimeError("cannot create invite")
         return FakeInvite(self._invite_link)

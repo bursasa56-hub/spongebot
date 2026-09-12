@@ -13,6 +13,7 @@ MENU_INSTRUCTION = "menu:instruction"
 MENU_TASKS = "menu:tasks"
 MENU_WITHDRAW = "menu:withdraw"
 MENU_EARN = "menu:earn"
+MENU_PROMO = "menu:promo"
 CHECK_SUBS = "check_subs"
 
 
@@ -27,6 +28,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             [_btn("👤 Профиль", MENU_PROFILE)],
             [_btn("📋 Задания", MENU_TASKS)],
             [_btn("💸 Вывод звёзд", MENU_WITHDRAW)],
+            [_btn("🎟 Промокод", MENU_PROMO)],
             [_btn("📖 Инструкция", MENU_INSTRUCTION)],
         ]
     )
