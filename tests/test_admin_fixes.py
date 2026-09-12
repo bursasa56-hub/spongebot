@@ -3,11 +3,13 @@ import pytest
 from bot.db.models import TaskItem
 from bot.handlers import admin as admin_handlers
 from bot.services.partners import create_partner
+from bot.services.promos import list_promos
 from tests.fakes import FakeBot, FakeChat
 
 
 class FakeMessage:
-    def __init__(self):
+    def __init__(self, text=""):
+        self.text = text
         self.answers = []
         self.edits = []
 
@@ -90,16 +92,45 @@ async def test_admin_partner_key_sends_key(session):
 
 
 @pytest.mark.asyncio
-async def test_sponsor_type_channel_stores_type_and_asks_link():
+async def test_sponsor_type_channel_asks_subtype():
     callback = FakeCallback("admin:sponsor:type:channel")
     state = FakeState()
 
     await admin_handlers.admin_sponsor_type(callback, state)
 
     assert (await state.get_data())["type"] == "channel"
+    assert state.state == admin_handlers.AdminStates.sponsor_subtype
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_sponsor_subtype_stores_and_asks_link():
+    callback = FakeCallback("admin:sponsor:subtype:private_request")
+    state = FakeState({"type": "channel"})
+
+    await admin_handlers.admin_sponsor_subtype(callback, state)
+
+    data = await state.get_data()
+    assert data["subtype"] == "private_request"
+    assert data["type"] == "channel"
     assert state.state == admin_handlers.AdminStates.sponsor_link
     assert callback.message.answers
     assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_admin_promo_uses_creates_promo(session):
+    message = FakeMessage("10")
+    state = FakeState({"code": "SALE", "stars": 5})
+
+    await admin_handlers.admin_promo_uses(message, state, session)
+
+    assert state.cleared is True
+    assert message.answers
+    assert "SALE" in message.answers[-1][0]
+    promos = await list_promos(session)
+    assert [p.code for p in promos] == ["SALE"]
 
 
 @pytest.mark.asyncio

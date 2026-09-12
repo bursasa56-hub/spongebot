@@ -14,6 +14,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
             [_btn("✉️ Рассылка", "admin:broadcast"), _btn("📊 Статистика", "admin:stats")],
             [_btn("💸 Заявки на вывод", "admin:withdrawals")],
             [_btn("🤝 Партнёры", "admin:partners"), _btn("⚙️ Настройки", "admin:settings")],
+            [_btn("🎟 Промокоды", "admin:promos")],
         ]
     )
 
@@ -88,6 +89,26 @@ def sponsor_quota_kb() -> InlineKeyboardMarkup:
         [_btn("🔢 На количество", "admin:sponsor:quota:1")],
         [_btn("⬅️ Назад", "admin:menu")],
     ])
+
+
+def sponsor_channel_subtype_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("📢 Публичный канал", "admin:sponsor:subtype:public_channel")],
+        [_btn("💬 Чат (группа)", "admin:sponsor:subtype:chat")],
+        [_btn("🔒 Частный канал (заявка)", "admin:sponsor:subtype:private_request")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
+def promos_admin_kb(promos) -> InlineKeyboardMarkup:
+    rows = [[_btn("➕ Создать промокод", "admin:promo:add")]]
+    for p in promos:
+        limit = p.max_uses if p.max_uses else "∞"
+        rows.append([
+            _btn(f"🗑 {p.code} — {p.stars}★ ({p.used_count}/{limit})", f"admin:promo:del:{p.id}")
+        ])
+    rows.append([_btn("⬅️ Назад", "admin:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def task_type_kb() -> InlineKeyboardMarkup:

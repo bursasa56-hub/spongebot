@@ -91,8 +91,9 @@ tgbot4tgbot/
 | created_at | DateTime | дата регистрации |
 
 ### sponsors (обязательные подписки)
-id, type (`channel` | `bot`), title, url, chat_id (для channel), active,
-expires_at (nullable — срок действия), max_completions (0 = без лимита),
+id, type (`channel` | `bot`), subtype (`public_channel` | `chat` |
+`private_request` — только для `channel`), title, url, chat_id (для channel),
+active, expires_at (nullable — срок действия), max_completions (0 = без лимита),
 partner_id (FK→partners, nullable — партнёр, чей бот подтверждает прохождение),
 created_at.
 
@@ -119,6 +120,12 @@ id, user_id FK, gift_id, gift_name, gift_stars, username_to, status
 
 ### broadcasts
 id, text, media_file_id (nullable), sent_count, failed_count, created_at.
+
+### promo_codes / promo_uses
+Промокоды: `promo_codes` (id, code уникальный, stars, max_uses, used_count,
+active, created_at) и `promo_uses` (id, user_id FK, promo_id FK, used_at;
+уникальная пара user_id+promo_id). Пользователь активирует код кнопкой в меню,
+звёзды начисляются один раз; лимит использований `max_uses` (0 = без лимита).
 
 ### gifts
 Фиксированный список в коде (`utils/gifts.py`), сидируется в БД: id, name,
@@ -206,6 +213,8 @@ Inline-клавиатура. На каждом подэкране есть кн�
   удалить, список.
 - **Партнёры:** добавить, удалить, посмотреть API-ключ. Ключи хранятся в
   таблице `partners`; боты-спонсоры и боты-задания привязываются к партнёру.
+- **Промокоды:** раздел со списком (`promo_codes`), создание (FSM: код → звёзды
+  → лимит) и удаление. Пользовательская кнопка «🎟 Промокод» активирует код.
 - **Настройки:** базовый адрес партнёрского API и прочие параметры
   (таблица `settings`).
 - **Рассылка:** FSM ввода текста (опц. медиа) → отправка всем `is_blocked=false`,

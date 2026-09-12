@@ -1,10 +1,12 @@
 from urllib.parse import quote
 
-from bot.db.models import Partner, Sponsor, TaskItem
+from bot.db.models import Partner, PromoCode, Sponsor, TaskItem
 from bot.keyboards.admin import (
     admin_menu_kb,
     partner_choice_kb,
     partners_admin_kb,
+    promos_admin_kb,
+    sponsor_channel_subtype_kb,
     sponsor_duration_kb,
     sponsor_quota_kb,
     sponsor_type_kb,
@@ -117,3 +119,22 @@ def test_task_type_kb_callbacks():
     data = _callbacks(task_type_kb())
     assert "admin:task:type:channel" in data
     assert "admin:task:type:bot" in data
+
+
+def test_admin_menu_has_promos():
+    assert "admin:promos" in _callbacks(admin_menu_kb())
+
+
+def test_sponsor_channel_subtype_kb_callbacks():
+    data = _callbacks(sponsor_channel_subtype_kb())
+    assert "admin:sponsor:subtype:public_channel" in data
+    assert "admin:sponsor:subtype:chat" in data
+    assert "admin:sponsor:subtype:private_request" in data
+
+
+def test_promos_admin_kb_renders_promos():
+    promo = PromoCode(id=4, code="SALE", stars=5, max_uses=0, used_count=2)
+    kb = promos_admin_kb([promo])
+    data = _callbacks(kb)
+    assert "admin:promo:add" in data
+    assert "admin:promo:del:4" in data

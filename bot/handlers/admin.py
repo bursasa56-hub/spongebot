@@ -16,7 +16,9 @@ from ..keyboards.admin import (
     back_to_admin_kb,
     partner_choice_kb,
     partners_admin_kb,
+    promos_admin_kb,
     settings_admin_kb,
+    sponsor_channel_subtype_kb,
     sponsor_duration_kb,
     sponsor_quota_kb,
     sponsor_type_kb,
@@ -30,6 +32,12 @@ from ..services.partners import (
     delete_partner,
     get_partner,
     list_partners,
+)
+from ..services.promos import (
+    PromoError,
+    create_promo,
+    delete_promo,
+    list_promos,
 )
 from ..services.settings import API_BASE_URL_KEY, get_setting, set_setting
 from ..services.snippets import build_snippet
@@ -50,6 +58,7 @@ router_admin = Router()
 
 
 class AdminStates(StatesGroup):
+    sponsor_subtype = State()
     sponsor_link = State()
     sponsor_hours = State()
     sponsor_quota = State()
@@ -62,6 +71,9 @@ class AdminStates(StatesGroup):
     partner_name = State()
     settings_api_url = State()
     broadcast_text = State()
+    promo_code = State()
+    promo_stars = State()
+    promo_uses = State()
 
 
 def stats_text(stats) -> str:
@@ -230,15 +242,30 @@ async def admin_sponsor_add(callback: CallbackQuery, state: FSMContext) -> None:
 async def admin_sponsor_type(callback: CallbackQuery, state: FSMContext) -> None:
     sponsor_type = callback.data.split(":")[3]
     await state.update_data(type=sponsor_type)
-    await state.set_state(AdminStates.sponsor_link)
     if sponsor_type == "channel":
-        text = (
-            "Отправь ссылку на канал (@username, t.me/... или id -100...). "
-            "Бот должен быть админом в канале."
+        await state.set_state(AdminStates.sponsor_subtype)
+        await callback.message.answer(
+            "Какой это канал?", reply_markup=sponsor_channel_subtype_kb()
         )
     else:
-        text = "Отправь ссылку на бота (@username или t.me/...)."
-    await callback.message.answer(text, reply_markup=back_to_admin_kb())
+        await state.set_state(AdminStates.sponsor_link)
+        await callback.message.answer(
+            "Отправь ссылку на бота (@username или t.me/...).",
+            reply_markup=back_to_admin_kb(),
+        )
+    await callback.answer()
+
+
+@router_admin.callback_query(F.data.startswith("admin:sponsor:subtype:"), IsAdmin())
+async def admin_sponsor_subtype(callback: CallbackQuery, state: FSMContext) -> None:
+    subtype = callback.data.split(":")[3]
+    await state.update_data(subtype=subtype, type="channel")
+    await state.set_state(AdminStates.sponsor_link)
+    await callback.message.answer(
+        "Отправь ссылку на канал (@username, t.me/... или id -100...). "
+        "Для частного канала отправь его id -100..., бот должен быть админом.",
+        reply_markup=back_to_admin_kb(),
+    )
     await callback.answer()
 
 
@@ -341,6 +368,7 @@ async def _finish_sponsor(bot, message, state: FSMContext, session, partner_id) 
                 session,
                 bot,
                 link,
+                subtype=data.get("subtype", "public_channel"),
                 expires_at=expires_at,
                 max_completions=quota,
                 partner_id=partner_id,
@@ -386,6 +414,88 @@ async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     await callback.message.answer(
         "📢 <b>Обязательные спонсоры</b>",
         reply_markup=sponsors_admin_kb(sponsors, statuses),
+    )
+    await callback.answer("Удалено")
+
+
+@router_admin.callback_query(F.data == "admin:promos", IsAdmin())
+async def admin_promos(callback: CallbackQuery, session) -> None:
+    promos = await list_promos(session)
+    await callback.message.answer(
+        "🎟 <b>Промокоды</b>", reply_markup=promos_admin_kb(promos)
+    )
+    await callback.answer()
+
+
+@router_admin.callback_query(F.data == "admin:promo:add", IsAdmin())
+async def admin_promo_add(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await state.set_state(AdminStates.promo_code)
+    await callback.message.answer(
+        "Отправь текст промокода.", reply_markup=back_to_admin_kb()
+    )
+    await callback.answer()
+
+
+@router_admin.message(AdminStates.promo_code, IsAdmin())
+async def admin_promo_code(message: Message, state: FSMContext) -> None:
+    await state.update_data(code=(message.text or "").strip())
+    await state.set_state(AdminStates.promo_stars)
+    await message.answer(
+        "Сколько звёзд даёт промокод? (целое число)",
+        reply_markup=back_to_admin_kb(),
+    )
+
+
+@router_admin.message(AdminStates.promo_stars, IsAdmin())
+async def admin_promo_stars(message: Message, state: FSMContext) -> None:
+    try:
+        stars = int((message.text or "").strip())
+        if stars <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer(
+            "Введи целое число больше 0.", reply_markup=back_to_admin_kb()
+        )
+        return
+    await state.update_data(stars=stars)
+    await state.set_state(AdminStates.promo_uses)
+    await message.answer(
+        "Лимит использований? (0 = без лимита)", reply_markup=back_to_admin_kb()
+    )
+
+
+@router_admin.message(AdminStates.promo_uses, IsAdmin())
+async def admin_promo_uses(message: Message, state: FSMContext, session) -> None:
+    try:
+        max_uses = int((message.text or "").strip())
+        if max_uses < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer(
+            "Введи целое число ≥ 0.", reply_markup=back_to_admin_kb()
+        )
+        return
+    data = await state.get_data()
+    try:
+        promo = await create_promo(session, data["code"], data["stars"], max_uses)
+    except PromoError as exc:
+        await message.answer(f"❌ {exc}", reply_markup=back_to_admin_kb())
+        return
+    await state.clear()
+    await message.answer(
+        f"✅ Промокод <code>{html.escape(promo.code)}</code> создан.",
+        reply_markup=admin_menu_kb(),
+    )
+
+
+@router_admin.callback_query(F.data.startswith("admin:promo:del:"), IsAdmin())
+async def admin_promo_del(callback: CallbackQuery, session) -> None:
+    promo_id = int(callback.data.split(":")[3])
+    await delete_promo(session, promo_id)
+    promos = await list_promos(session)
+    await callback.message.answer(
+        "🎟 <b>Промокоды</b>", reply_markup=promos_admin_kb(promos)
     )
     await callback.answer("Удалено")
 
