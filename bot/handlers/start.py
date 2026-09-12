@@ -36,6 +36,19 @@ async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None
         await message.answer(text, reply_markup=main_menu_kb())
 
 
+async def _credit_and_notify(session, bot, user_id: int) -> None:
+    referrer = await credit_referrer(session, user_id)
+    if referrer is not None:
+        try:
+            await bot.send_message(
+                referrer.id,
+                f"🎉 По вашей ссылке зарегистрировался друг! Начислено "
+                f"{format_stars(30)}.",
+            )
+        except Exception:
+            pass
+
+
 @router_start.message(CommandStart())
 async def cmd_start(
     message: Message, command: CommandObject, session, bot
@@ -52,6 +65,7 @@ async def cmd_start(
         )
         return
 
+    await _credit_and_notify(session, bot, user.id)
     await _show_menu(message, user.id)
 
 
@@ -67,16 +81,7 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
         )
         return
 
-    referrer = await credit_referrer(session, user.id)
-    if referrer is not None:
-        try:
-            await bot.send_message(
-                referrer.id,
-                f"🎉 По вашей ссылке зарегистрировался друг! Начислено "
-                f"{format_stars(30)}.",
-            )
-        except Exception:
-            pass
+    await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
     await callback.message.edit_text(

@@ -112,11 +112,20 @@ async def receive_username(
         f"📥 Вывести на: @{username}\n"
         f"🕒 Заявка #{withdrawal.id}"
     )
-    admin_msg = await message.bot.send_message(
-        config.admin_chat_id,
-        admin_text,
-        reply_markup=withdraw_admin_kb(withdrawal.id, username),
-    )
+    try:
+        admin_msg = await message.bot.send_message(
+            config.admin_chat_id,
+            admin_text,
+            reply_markup=withdraw_admin_kb(withdrawal.id, username),
+        )
+    except Exception:
+        await session.delete(withdrawal)
+        await session.commit()
+        await message.answer(
+            "⚠️ Не удалось отправить заявку. Попробуй позже.",
+            reply_markup=cancel_kb(),
+        )
+        return
     withdrawal.admin_chat_id = admin_msg.chat.id
     withdrawal.admin_msg_id = admin_msg.message_id
     await session.commit()
