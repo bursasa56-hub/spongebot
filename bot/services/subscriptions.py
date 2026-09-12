@@ -37,11 +37,55 @@ async def is_member(bot, chat_ref: str, user_id: int) -> bool:
     return getattr(member, "status", None) in MEMBER_STATUSES
 
 
+async def count_sponsor_completions(session: AsyncSession, sponsor_id: int) -> int:
+    from sqlalchemy import func
+
+    return (
+        await session.execute(
+            select(func.count())
+            .select_from(UserSponsor)
+            .where(UserSponsor.sponsor_id == sponsor_id)
+        )
+    ).scalar_one()
+
+
 async def active_sponsors(session: AsyncSession) -> list[Sponsor]:
+    from datetime import datetime
+
+    now = datetime.utcnow()
     res = await session.execute(
         select(Sponsor).where(Sponsor.active.is_(True)).order_by(Sponsor.id)
     )
-    return list(res.scalars().all())
+    result = []
+    for sponsor in res.scalars().all():
+        if sponsor.expires_at is not None and sponsor.expires_at <= now:
+            continue
+        if sponsor.max_completions and (
+            await count_sponsor_completions(session, sponsor.id) >= sponsor.max_completions
+        ):
+            continue
+        result.append(sponsor)
+    return result
+
+
+async def sponsor_status(session: AsyncSession, sponsor: Sponsor) -> str:
+    from datetime import datetime
+
+    now = datetime.utcnow()
+    if not sponsor.active:
+        return "выключен"
+    if sponsor.expires_at is not None and sponsor.expires_at <= now:
+        return "истёк"
+    done = await count_sponsor_completions(session, sponsor.id)
+    if sponsor.max_completions and done >= sponsor.max_completions:
+        return "квота исчерпана"
+    parts = []
+    if sponsor.expires_at is not None:
+        hours = int((sponsor.expires_at - now).total_seconds() // 3600)
+        parts.append(f"осталось ~{hours} ч")
+    if sponsor.max_completions:
+        parts.append(f"осталось {sponsor.max_completions - done}")
+    return ", ".join(parts) if parts else "бессрочно"
 
 
 async def missing_sponsors(session: AsyncSession, bot, user_id: int) -> list[Sponsor]:
@@ -58,6 +102,8 @@ async def missing_sponsors(session: AsyncSession, bot, user_id: int) -> list[Spo
                 missing.append(sponsor)
         elif not await is_member(bot, sponsor.chat_id or sponsor.url, user_id):
             missing.append(sponsor)
+        else:
+            await mark_sponsor_done(session, user_id, sponsor.id)
     return missing
 
 
@@ -74,7 +120,15 @@ async def mark_sponsor_done(session: AsyncSession, user_id: int, sponsor_id: int
     return True
 
 
-async def add_channel_sponsor(session: AsyncSession, bot, link: str) -> Sponsor:
+async def add_channel_sponsor(
+    session: AsyncSession,
+    bot,
+    link: str,
+    *,
+    expires_at=None,
+    max_completions: int = 0,
+    partner_id: int | None = None,
+) -> Sponsor:
     chat_ref = parse_chat_ref(link)
     try:
         chat = await bot.get_chat(chat_ref)
@@ -112,20 +166,43 @@ async def add_channel_sponsor(session: AsyncSession, bot, link: str) -> Sponsor:
                 "У канала нет публичного @username и не удалось создать ссылку-приглашение."
             ) from exc
         url = invite.invite_link
-    sponsor = Sponsor(type="channel", title=title, url=url, chat_id=str(chat.id))
+    sponsor = Sponsor(
+        type="channel",
+        title=title,
+        url=url,
+        chat_id=str(chat.id),
+        expires_at=expires_at,
+        max_completions=max_completions,
+        partner_id=partner_id,
+    )
     session.add(sponsor)
     await session.commit()
     return sponsor
 
 
-async def add_bot_sponsor(session: AsyncSession, link: str) -> Sponsor:
+async def add_bot_sponsor(
+    session: AsyncSession,
+    link: str,
+    *,
+    expires_at=None,
+    max_completions: int = 0,
+    partner_id: int | None = None,
+) -> Sponsor:
     chat_ref = parse_chat_ref(link)
     username = chat_ref.lstrip("@")
     url = f"https://t.me/{username}"
     existing = await session.execute(select(Sponsor).where(Sponsor.url == url))
     if existing.scalar_one_or_none() is not None:
         raise SponsorError("Этот бот уже добавлен.")
-    sponsor = Sponsor(type="bot", title="@" + username, url=url, chat_id=None)
+    sponsor = Sponsor(
+        type="bot",
+        title="@" + username,
+        url=url,
+        chat_id=None,
+        expires_at=expires_at,
+        max_completions=max_completions,
+        partner_id=partner_id,
+    )
     session.add(sponsor)
     await session.commit()
     return sponsor

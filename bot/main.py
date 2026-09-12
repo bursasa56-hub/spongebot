@@ -52,7 +52,7 @@ async def main() -> None:
     )
     dp = build_dispatcher(config, session_factory)
 
-    app = create_partner_app(session_factory, config.partner_api_key)
+    app = create_partner_app(session_factory)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, config.partner_api_host, config.partner_api_port)

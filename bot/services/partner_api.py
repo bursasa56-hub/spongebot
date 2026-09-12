@@ -3,11 +3,12 @@ from __future__ import annotations
 from aiohttp import web
 
 from ..db.models import Sponsor, TaskItem
+from .partners import verify_key
 from .subscriptions import mark_sponsor_done
 from .tasks import complete_task
 
 
-def create_partner_app(session_factory, api_key: str) -> web.Application:
+def create_partner_app(session_factory) -> web.Application:
     app = web.Application()
 
     async def confirm(request: web.Request) -> web.Response:
@@ -16,7 +17,9 @@ def create_partner_app(session_factory, api_key: str) -> web.Application:
         except Exception:
             return web.json_response({"ok": False, "error": "bad_json"}, status=400)
 
-        if data.get("api_key") != api_key:
+        async with session_factory() as session:
+            partner = await verify_key(session, data.get("api_key"))
+        if partner is None:
             return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
         has_task = data.get("task_id") is not None

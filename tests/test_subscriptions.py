@@ -1,5 +1,9 @@
-import pytest
+from datetime import datetime, timedelta
 
+import pytest
+from sqlalchemy import select
+
+from bot.db.models import UserSponsor
 from bot.services.subscriptions import (
     SponsorError,
     add_bot_sponsor,
@@ -106,3 +110,39 @@ async def test_delete_sponsor(session):
     sponsor = await add_bot_sponsor(session, "@partner_bot")
     assert await delete_sponsor(session, sponsor.id) is True
     assert await active_sponsors(session) == []
+
+
+@pytest.mark.asyncio
+async def test_expired_sponsor_excluded(session):
+    sponsor = await add_bot_sponsor(session, "@partner_bot")
+    sponsor.expires_at = datetime.utcnow() - timedelta(hours=1)
+    await session.commit()
+    assert await active_sponsors(session) == []
+
+
+@pytest.mark.asyncio
+async def test_quota_reached_sponsor_excluded(session):
+    sponsor = await add_bot_sponsor(session, "@partner_bot")
+    sponsor.max_completions = 1
+    await session.commit()
+    assert [s.id for s in await active_sponsors(session)] == [sponsor.id]
+    assert await mark_sponsor_done(session, 1, sponsor.id) is True
+    assert await active_sponsors(session) == []
+
+
+@pytest.mark.asyncio
+async def test_channel_completion_recorded(session):
+    admin_bot = FakeBot(
+        member_status="administrator", chat=FakeChat(-100, "Chan", "chan")
+    )
+    sponsor = await add_channel_sponsor(session, admin_bot, "@chan")
+
+    bot_ok = FakeBot(member_status="member")
+    assert await missing_sponsors(session, bot_ok, 1) == []
+
+    res = await session.execute(
+        select(UserSponsor).where(
+            UserSponsor.user_id == 1, UserSponsor.sponsor_id == sponsor.id
+        )
+    )
+    assert res.scalar_one_or_none() is not None

@@ -12,7 +12,6 @@ class Config:
     admin_ids: tuple[int, ...]
     admin_chat_id: int
     support_url: str
-    partner_api_key: str
     db_path: str
     partner_api_host: str
     partner_api_port: int
@@ -29,7 +28,6 @@ def load_config(env_file: str | None = ".env") -> Config:
         admin_ids=admin_ids,
         admin_chat_id=int(os.environ["ADMIN_CHAT_ID"]),
         support_url=os.getenv("SUPPORT_URL", "https://t.me/telegram"),
-        partner_api_key=os.getenv("PARTNER_API_KEY", "change_me"),
         db_path=os.getenv("DB_PATH", "data/bot.db"),
         partner_api_host=os.getenv("PARTNER_API_HOST", "0.0.0.0"),
         partner_api_port=int(os.getenv("PARTNER_API_PORT", "8080")),
