@@ -16,7 +16,11 @@ from ..keyboards.admin import (
     partner_choice_kb,
     partners_admin_kb,
     settings_admin_kb,
+    sponsor_duration_kb,
+    sponsor_quota_kb,
+    sponsor_type_kb,
     sponsors_admin_kb,
+    task_type_kb,
     tasks_admin_kb,
 )
 from ..middlewares.admin_filter import IsAdmin
@@ -94,14 +98,14 @@ async def admin_panel(message: Message) -> None:
 @router_admin.callback_query(F.data == "admin:menu", IsAdmin())
 async def admin_back(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
+    await callback.message.answer("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
     await callback.answer()
 
 
 @router_admin.callback_query(F.data == "admin:stats", IsAdmin())
 async def admin_stats(callback: CallbackQuery, session) -> None:
     stats = await get_stats(session)
-    await callback.message.edit_text(
+    await callback.message.answer(
         stats_text(stats), reply_markup=admin_menu_kb()
     )
     await callback.answer()
@@ -110,7 +114,7 @@ async def admin_stats(callback: CallbackQuery, session) -> None:
 @router_admin.callback_query(F.data == "admin:partners", IsAdmin())
 async def admin_partners(callback: CallbackQuery, session) -> None:
     partners = await list_partners(session)
-    await callback.message.edit_text(
+    await callback.message.answer(
         "🤝 <b>Партнёры</b>", reply_markup=partners_admin_kb(partners)
     )
     await callback.answer()
@@ -119,7 +123,7 @@ async def admin_partners(callback: CallbackQuery, session) -> None:
 @router_admin.callback_query(F.data == "admin:partner:add", IsAdmin())
 async def admin_partner_add(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.partner_name)
-    await callback.message.edit_text(
+    await callback.message.answer(
         "Отправь название партнёра.", reply_markup=admin_menu_kb()
     )
     await callback.answer()
@@ -160,7 +164,7 @@ async def admin_partner_del(callback: CallbackQuery, session) -> None:
     partner_id = int(callback.data.split(":")[3])
     await delete_partner(session, partner_id)
     partners = await list_partners(session)
-    await callback.message.edit_text(
+    await callback.message.answer(
         "🤝 <b>Партнёры</b>", reply_markup=partners_admin_kb(partners)
     )
     await callback.answer("Удалено")
@@ -170,7 +174,7 @@ async def admin_partner_del(callback: CallbackQuery, session) -> None:
 async def admin_settings(callback: CallbackQuery, session) -> None:
     value = await get_setting(session, API_BASE_URL_KEY)
     shown = html.escape(value) if value else "не задан"
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"⚙️ <b>Настройки</b>\n\nАдрес API: <code>{shown}</code>",
         reply_markup=settings_admin_kb(),
     )
@@ -180,7 +184,7 @@ async def admin_settings(callback: CallbackQuery, session) -> None:
 @router_admin.callback_query(F.data == "admin:settings:api_url", IsAdmin())
 async def admin_settings_api_url(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.settings_api_url)
-    await callback.message.edit_text(
+    await callback.message.answer(
         "Отправь базовый адрес API, например https://example.com",
         reply_markup=admin_menu_kb(),
     )
@@ -205,41 +209,56 @@ async def admin_settings_api_url_save(message: Message, state: FSMContext, sessi
 async def admin_sponsors(callback: CallbackQuery, session) -> None:
     sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
-    await callback.message.edit_text(
+    await callback.message.answer(
         "📢 <b>Обязательные спонсоры</b>",
         reply_markup=sponsors_admin_kb(sponsors, statuses),
     )
     await callback.answer()
 
 
-@router_admin.callback_query(F.data == "admin:sponsor:add_channel", IsAdmin())
-async def admin_add_channel(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(AdminStates.sponsor_link)
-    await state.update_data(type="channel")
-    await callback.message.edit_text(
-        "Отправь ссылку на канал (@username, t.me/... или id -100...). "
-        "Бот должен быть админом в канале.",
-        reply_markup=admin_menu_kb(),
+@router_admin.callback_query(F.data == "admin:sponsor:add", IsAdmin())
+async def admin_sponsor_add(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await callback.message.answer(
+        "Какого типа спонсор?", reply_markup=sponsor_type_kb()
     )
     await callback.answer()
 
 
-@router_admin.callback_query(F.data == "admin:sponsor:add_bot", IsAdmin())
-async def admin_add_bot(callback: CallbackQuery, state: FSMContext) -> None:
+@router_admin.callback_query(F.data.startswith("admin:sponsor:type:"), IsAdmin())
+async def admin_sponsor_type(callback: CallbackQuery, state: FSMContext) -> None:
+    sponsor_type = callback.data.split(":")[3]
+    await state.update_data(type=sponsor_type)
     await state.set_state(AdminStates.sponsor_link)
-    await state.update_data(type="bot")
-    await callback.message.edit_text(
-        "Отправь ссылку на бота (@username или t.me/...).",
-        reply_markup=admin_menu_kb(),
-    )
+    if sponsor_type == "channel":
+        text = (
+            "Отправь ссылку на канал (@username, t.me/... или id -100...). "
+            "Бот должен быть админом в канале."
+        )
+    else:
+        text = "Отправь ссылку на бота (@username или t.me/...)."
+    await callback.message.answer(text, reply_markup=admin_menu_kb())
     await callback.answer()
 
 
 @router_admin.message(AdminStates.sponsor_link, IsAdmin())
 async def admin_sponsor_link(message: Message, state: FSMContext) -> None:
     await state.update_data(link=(message.text or "").strip())
-    await state.set_state(AdminStates.sponsor_hours)
-    await message.answer("Срок действия в часах (0 = бессрочно).")
+    await message.answer("Срок действия?", reply_markup=sponsor_duration_kb())
+
+
+@router_admin.callback_query(F.data.startswith("admin:sponsor:duration:"), IsAdmin())
+async def admin_sponsor_duration(callback: CallbackQuery, state: FSMContext) -> None:
+    value = callback.data.split(":")[3]
+    if value == "0":
+        await state.update_data(hours=0)
+        await callback.message.answer(
+            "Лимит прохождений?", reply_markup=sponsor_quota_kb()
+        )
+    else:
+        await state.set_state(AdminStates.sponsor_hours)
+        await callback.message.answer("Сколько часов?")
+    await callback.answer()
 
 
 @router_admin.message(AdminStates.sponsor_hours, IsAdmin())
@@ -252,8 +271,21 @@ async def admin_sponsor_hours(message: Message, state: FSMContext) -> None:
         await message.answer("Введи целое число ≥ 0.")
         return
     await state.update_data(hours=hours)
-    await state.set_state(AdminStates.sponsor_quota)
-    await message.answer("Лимит прохождений (0 = без лимита).")
+    await message.answer("Лимит прохождений?", reply_markup=sponsor_quota_kb())
+
+
+@router_admin.callback_query(F.data.startswith("admin:sponsor:quota:"), IsAdmin())
+async def admin_sponsor_quota_choice(
+    callback: CallbackQuery, state: FSMContext, session, bot
+) -> None:
+    value = callback.data.split(":")[3]
+    if value == "0":
+        await state.update_data(quota=0)
+        await _after_quota(bot, callback.message, state, session)
+    else:
+        await state.set_state(AdminStates.sponsor_quota)
+        await callback.message.answer("Сколько прохождений?")
+    await callback.answer()
 
 
 @router_admin.message(AdminStates.sponsor_quota, IsAdmin())
@@ -266,6 +298,10 @@ async def admin_sponsor_quota(message: Message, state: FSMContext, session, bot)
         await message.answer("Введи целое число ≥ 0.")
         return
     await state.update_data(quota=quota)
+    await _after_quota(bot, message, state, session)
+
+
+async def _after_quota(bot, message, state: FSMContext, session) -> None:
     data = await state.get_data()
     if data.get("type") == "bot":
         partners = await list_partners(session)
@@ -342,7 +378,7 @@ async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     await delete_sponsor(session, sponsor_id)
     sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
-    await callback.message.edit_text(
+    await callback.message.answer(
         "📢 <b>Обязательные спонсоры</b>",
         reply_markup=sponsors_admin_kb(sponsors, statuses),
     )
@@ -353,7 +389,7 @@ async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
 async def admin_tasks(callback: CallbackQuery, session) -> None:
     res = await session.execute(select(TaskItem).order_by(TaskItem.id))
     tasks = list(res.scalars().all())
-    await callback.message.edit_text(
+    await callback.message.answer(
         "📋 <b>Задания</b>", reply_markup=tasks_admin_kb(tasks)
     )
     await callback.answer()
@@ -368,7 +404,7 @@ async def admin_del_task(callback: CallbackQuery, session) -> None:
         await session.commit()
     res = await session.execute(select(TaskItem).where(TaskItem.active.is_(True)))
     tasks = list(res.scalars().all())
-    await callback.message.edit_text(
+    await callback.message.answer(
         "📋 <b>Задания</b>", reply_markup=tasks_admin_kb(tasks)
     )
     await callback.answer("Удалено")
@@ -429,35 +465,28 @@ async def admin_withdrawals(callback: CallbackQuery, session) -> None:
                 ]
             )
     rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:menu")])
-    await callback.message.edit_text(
+    await callback.message.answer(
         text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
     await callback.answer()
 
 
-TASK_TYPE_LABELS = {"channel": "канал", "bot": "бот"}
-
-
 @router_admin.callback_query(F.data == "admin:task:add", IsAdmin())
 async def admin_task_add(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(AdminStates.task_type)
-    await callback.message.edit_text(
-        "Что за задание? Напиши <code>channel</code> (подписка на канал) "
-        "или <code>bot</code> (старт в боте).",
-        reply_markup=admin_menu_kb(),
-    )
+    await state.clear()
+    await callback.message.answer("Что за задание?", reply_markup=task_type_kb())
     await callback.answer()
 
 
-@router_admin.message(AdminStates.task_type, IsAdmin())
-async def admin_task_type(message: Message, state: FSMContext) -> None:
-    value = (message.text or "").strip().lower()
-    if value not in TASK_TYPE_LABELS:
-        await message.answer("Введи channel или bot.")
-        return
-    await state.update_data(type=value)
+@router_admin.callback_query(F.data.startswith("admin:task:type:"), IsAdmin())
+async def admin_task_type(callback: CallbackQuery, state: FSMContext) -> None:
+    task_type = callback.data.split(":")[3]
+    await state.update_data(type=task_type)
     await state.set_state(AdminStates.task_link)
-    await message.answer("Отправь ссылку (@username или t.me/...).")
+    await callback.message.answer(
+        "Отправь ссылку (@username или t.me/...).", reply_markup=admin_menu_kb()
+    )
+    await callback.answer()
 
 
 @router_admin.message(AdminStates.task_link, IsAdmin())
@@ -546,7 +575,7 @@ async def admin_task_code(callback: CallbackQuery, session) -> None:
 @router_admin.callback_query(F.data == "admin:broadcast", IsAdmin())
 async def admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminStates.broadcast_text)
-    await callback.message.edit_text(
+    await callback.message.answer(
         "Отправь текст рассылки.", reply_markup=admin_menu_kb()
     )
     await callback.answer()

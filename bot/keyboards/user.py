@@ -23,10 +23,8 @@ def _btn(text: str, callback_data: str) -> InlineKeyboardButton:
 def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_btn("👤 Профиль", MENU_PROFILE)],
-            [_btn("📋 Задания", MENU_TASKS)],
-            [_btn("💸 Вывод звёзд", MENU_WITHDRAW)],
-            [_btn("💰 Заработать звёзды", MENU_EARN)],
+            [_btn("👤 Профиль", MENU_PROFILE), _btn("💰 Заработать", MENU_EARN)],
+            [_btn("📋 Задания", MENU_TASKS), _btn("💸 Вывод звёзд", MENU_WITHDRAW)],
             [_btn("📖 Инструкция", MENU_INSTRUCTION)],
         ]
     )

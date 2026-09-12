@@ -10,10 +10,8 @@ def _btn(text: str, callback_data: str) -> InlineKeyboardButton:
 def admin_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_btn("📢 Спонсоры", "admin:sponsors")],
-            [_btn("📋 Задания", "admin:tasks")],
-            [_btn("✉️ Рассылка", "admin:broadcast")],
-            [_btn("📊 Статистика", "admin:stats")],
+            [_btn("📢 Спонсоры", "admin:sponsors"), _btn("📋 Задания", "admin:tasks")],
+            [_btn("✉️ Рассылка", "admin:broadcast"), _btn("📊 Статистика", "admin:stats")],
             [_btn("💸 Заявки на вывод", "admin:withdrawals")],
             [_btn("🤝 Партнёры", "admin:partners"), _btn("⚙️ Настройки", "admin:settings")],
         ]
@@ -50,8 +48,7 @@ def settings_admin_kb() -> InlineKeyboardMarkup:
 
 
 def sponsors_admin_kb(sponsors, statuses: dict[int, str]) -> InlineKeyboardMarkup:
-    rows = [[_btn("➕ Добавить канал", "admin:sponsor:add_channel")],
-            [_btn("➕ Добавить бота", "admin:sponsor:add_bot")]]
+    rows = [[_btn("➕ Добавить спонсора", "admin:sponsor:add")]]
     for s in sponsors:
         row = [
             _btn(
@@ -64,6 +61,36 @@ def sponsors_admin_kb(sponsors, statuses: dict[int, str]) -> InlineKeyboardMarku
         rows.append(row)
     rows.append([_btn("⬅️ Назад", "admin:menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def sponsor_type_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("📢 Канал", "admin:sponsor:type:channel"), _btn("🤖 Бот", "admin:sponsor:type:bot")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
+def sponsor_duration_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("♾ Бессрочно", "admin:sponsor:duration:0")],
+        [_btn("⏳ На время", "admin:sponsor:duration:1")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
+def sponsor_quota_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("♾ Без лимита", "admin:sponsor:quota:0")],
+        [_btn("🔢 На количество", "admin:sponsor:quota:1")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
+def task_type_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("📢 Канал", "admin:task:type:channel"), _btn("🤖 Бот", "admin:task:type:bot")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
 
 
 def tasks_admin_kb(tasks) -> InlineKeyboardMarkup:

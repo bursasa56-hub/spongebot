@@ -48,7 +48,7 @@ class SubscriptionMiddleware(BaseMiddleware):
         )
         kb = sponsor_gate_kb(missing)
         if isinstance(event, CallbackQuery):
-            await event.message.edit_text(text, reply_markup=kb)
+            await event.message.answer(text, reply_markup=kb)
             await event.answer()
         else:
             await event.answer(text, reply_markup=kb)

@@ -38,14 +38,14 @@ def normalize_username(text: str) -> str | None:
 async def show_gifts(callback: CallbackQuery, session) -> None:
     user = await get_user(session, callback.from_user.id)
     if user.balance_tenths < 150:
-        await callback.message.edit_text(
+        await callback.message.answer(
             f"💸 Для вывода нужно минимум 15 ★.\n"
             f"Твой баланс: {format_stars(user.balance_tenths)}.",
             reply_markup=cancel_kb(),
         )
         await callback.answer()
         return
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"💸 <b>Вывод звёзд</b>\n\nБаланс: {format_stars(user.balance_tenths)}\n\n"
         "Выбери подарок:",
         reply_markup=gifts_kb(user.balance_tenths),
@@ -62,7 +62,7 @@ async def choose_gift(callback: CallbackQuery, state: FSMContext) -> None:
         return
     await state.update_data(gift_id=gift.id)
     await state.set_state(WithdrawStates.waiting_username)
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"🎁 Выбран подарок: {gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}\n\n"
         "Отправь <b>@username</b>, куда вывести звёзды:",
         reply_markup=cancel_kb(),

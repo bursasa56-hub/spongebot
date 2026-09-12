@@ -5,7 +5,11 @@ from bot.keyboards.admin import (
     admin_menu_kb,
     partner_choice_kb,
     partners_admin_kb,
+    sponsor_duration_kb,
+    sponsor_quota_kb,
+    sponsor_type_kb,
     sponsors_admin_kb,
+    task_type_kb,
 )
 from bot.keyboards.user import earn_kb, gifts_kb, main_menu_kb, task_kb
 from bot.utils.gifts import FIXED_GIFTS
@@ -85,3 +89,31 @@ def test_sponsors_admin_kb_renders_status_text():
     texts = [b.text for row in kb.inline_keyboard for b in row]
     assert any("истёк" in text for text in texts)
     assert "admin:sponsor:code:9" in _callbacks(kb)
+
+
+def test_sponsors_admin_kb_has_single_add_button():
+    assert "admin:sponsor:add" in _callbacks(sponsors_admin_kb([], {}))
+
+
+def test_sponsor_type_kb_callbacks():
+    data = _callbacks(sponsor_type_kb())
+    assert "admin:sponsor:type:channel" in data
+    assert "admin:sponsor:type:bot" in data
+
+
+def test_sponsor_duration_kb_callbacks():
+    data = _callbacks(sponsor_duration_kb())
+    assert "admin:sponsor:duration:0" in data
+    assert "admin:sponsor:duration:1" in data
+
+
+def test_sponsor_quota_kb_callbacks():
+    data = _callbacks(sponsor_quota_kb())
+    assert "admin:sponsor:quota:0" in data
+    assert "admin:sponsor:quota:1" in data
+
+
+def test_task_type_kb_callbacks():
+    data = _callbacks(task_type_kb())
+    assert "admin:task:type:channel" in data
+    assert "admin:task:type:bot" in data

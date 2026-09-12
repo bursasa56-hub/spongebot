@@ -45,7 +45,7 @@ async def show_profile(callback: CallbackQuery, session, bot) -> None:
     user = await get_user(session, callback.from_user.id)
     invited = await count_referrals(session, user.id)
     me = await bot.get_me()
-    await callback.message.edit_text(
+    await callback.message.answer(
         profile_text(user, me.username, invited), reply_markup=back_kb()
     )
     await callback.answer()
@@ -53,7 +53,7 @@ async def show_profile(callback: CallbackQuery, session, bot) -> None:
 
 @router_user.callback_query(F.data == MENU_INSTRUCTION)
 async def show_instruction(callback: CallbackQuery, support_url: str) -> None:
-    await callback.message.edit_text(
+    await callback.message.answer(
         INSTRUCTION_TEXT, reply_markup=instruction_kb(support_url)
     )
     await callback.answer()
@@ -71,5 +71,5 @@ async def show_earn(callback: CallbackQuery, bot) -> None:
         "За каждого друга, который подпишется на всех спонсоров — 3 ★.\n\n"
         f"🔗 Твоя ссылка:\n<code>{ref_link}</code>"
     )
-    await callback.message.edit_text(text, reply_markup=earn_kb(ref_link))
+    await callback.message.answer(text, reply_markup=earn_kb(ref_link))
     await callback.answer()

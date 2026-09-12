@@ -31,10 +31,7 @@ async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None
         f"{WELCOME}\n\n"
         "Выбери раздел в меню ниже."
     )
-    if edit:
-        await message.edit_text(text, reply_markup=main_menu_kb())
-    else:
-        await message.answer(text, reply_markup=main_menu_kb())
+    await message.answer(text, reply_markup=main_menu_kb())
 
 
 async def _credit_and_notify(session, bot, user_id: int) -> None:
@@ -81,7 +78,7 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
     missing = await missing_sponsors(session, bot, user.id)
     if missing:
         await callback.answer("❌ Вы подписались не на всех спонсоров.", show_alert=True)
-        await callback.message.edit_text(
+        await callback.message.answer(
             "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
             reply_markup=sponsor_gate_kb(missing),
         )
@@ -90,7 +87,7 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
     await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"{WELCOME}\n\nВыбери раздел в меню ниже.", reply_markup=main_menu_kb()
     )
 
@@ -99,13 +96,13 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
 async def back_to_main(callback: CallbackQuery, session, bot) -> None:
     missing = await missing_sponsors(session, bot, callback.from_user.id)
     if missing:
-        await callback.message.edit_text(
+        await callback.message.answer(
             "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
             reply_markup=sponsor_gate_kb(missing),
         )
         await callback.answer()
         return
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"{WELCOME}\n\nВыбери раздел в меню ниже.", reply_markup=main_menu_kb()
     )
     await callback.answer()
