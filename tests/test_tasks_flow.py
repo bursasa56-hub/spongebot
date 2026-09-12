@@ -61,3 +61,4 @@ async def test_show_tasks_sends_new_message_with_count(session):
     text = callback.message.answers[-1][0]
     assert "доступно" in text
     assert "доступно: 1" in text
+    assert text.count("Задани") == 1

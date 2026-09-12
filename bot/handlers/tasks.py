@@ -18,11 +18,15 @@ async def next_task(session, user_id: int, exclude_id: int | None = None):
     return None
 
 
-def task_text(task) -> str:
+def task_body(task) -> str:
     return (
-        f"📋 <b>Задание</b>\n\n{task.title}\n\n"
+        f"<b>{task.title}</b>\n\n"
         f"Награда: {format_stars(task.reward_tenths)}"
     )
+
+
+def task_text(task) -> str:
+    return "📋 <b>Задание</b>\n\n" + task_body(task)
 
 
 @router_tasks.callback_query(F.data == MENU_TASKS)
@@ -37,7 +41,7 @@ async def show_tasks(callback: CallbackQuery, session) -> None:
         return
     task = tasks[0]
     await callback.message.answer(
-        f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_text(task),
+        f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_body(task),
         reply_markup=task_kb(task),
     )
     await callback.answer()
