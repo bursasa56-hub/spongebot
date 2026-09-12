@@ -77,4 +77,9 @@ def create_partner_app(session_factory) -> web.Application:
             return web.json_response({"ok": True, "credited": done is not None})
 
     app.router.add_post("/partner/confirm", confirm)
+
+    async def health(request: web.Request) -> web.Response:
+        return web.json_response({"ok": True})
+
+    app.router.add_get("/health", health)
     return app

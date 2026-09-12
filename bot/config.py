@@ -30,5 +30,7 @@ def load_config(env_file: str | None = ".env") -> Config:
         support_url=os.getenv("SUPPORT_URL", "https://t.me/telegram"),
         db_path=os.getenv("DB_PATH", "data/bot.db"),
         partner_api_host=os.getenv("PARTNER_API_HOST", "0.0.0.0"),
-        partner_api_port=int(os.getenv("PARTNER_API_PORT", "8080")),
+        partner_api_port=int(
+            os.getenv("PARTNER_API_PORT") or os.getenv("PORT") or "8080"
+        ),
     )

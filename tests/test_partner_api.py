@@ -183,3 +183,17 @@ async def test_partner_cannot_confirm_other_partners_resources(engine, session):
     assert (await missing_user.json())["error"] == "user_not_found"
 
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint(engine):
+    factory = make_session_factory(engine)
+    app = create_partner_app(factory)
+    client = TestClient(TestServer(app))
+    await client.start_server()
+
+    resp = await client.get("/health")
+    assert resp.status == 200
+    assert (await resp.json())["ok"] is True
+
+    await client.close()

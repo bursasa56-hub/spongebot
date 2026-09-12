@@ -54,3 +54,24 @@ POST /partner/confirm
 ```
 
 Неверный ключ → 403; повторный запрос не начисляет повторно.
+
+## Docker / хостинг
+
+Сборка и запуск локально:
+
+```bash
+docker build -t stars-bot .
+docker run -d --name stars-bot \
+  -e BOT_TOKEN=123456:ABC... \
+  -e ADMIN_IDS=123456789 \
+  -e ADMIN_CHAT_ID=-1001234567890 \
+  -v stars-data:/app/data \
+  -p 8080:8080 \
+  stars-bot
+```
+
+- Порт сервера берётся из `PORT` (даёт хостинг), иначе из `PARTNER_API_PORT`,
+  иначе `8080`.
+- БД хранится в `/app/data/bot.db` — подключите volume, чтобы не терялась.
+- Секреты передаются переменными окружения, `.env` в образ не кладётся.
+- Проверка живости: `GET /health` → `{"ok": true}`.
