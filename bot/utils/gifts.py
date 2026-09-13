@@ -13,14 +13,14 @@ class GiftSpec:
 
 FIXED_GIFTS: tuple[GiftSpec, ...] = (
     GiftSpec("bear", "Медвежонок", "🧸", 15),
-    GiftSpec("rabbit", "Плюшевый заяц", "🐰", 20),
+    GiftSpec("heart", "Сердце", "💖", 15),
     GiftSpec("rose", "Роза", "🌹", 25),
-    GiftSpec("heart", "Сердце", "❤️", 30),
-    GiftSpec("cake", "Тортик", "🎂", 35),
-    GiftSpec("ring", "Кольцо", "💍", 40),
+    GiftSpec("gift", "Подарок", "🎁", 25),
     GiftSpec("bouquet", "Букет", "💐", 50),
-    GiftSpec("crown", "Корона", "👑", 60),
-    GiftSpec("cup", "Кубок", "🏆", 75),
+    GiftSpec("cake", "Тортик", "🎂", 50),
+    GiftSpec("rocket", "Ракета", "🚀", 50),
+    GiftSpec("cup", "Кубок", "🏆", 100),
+    GiftSpec("ring", "Кольцо", "💍", 100),
     GiftSpec("diamond", "Алмаз", "💎", 100),
 )
 

@@ -5,7 +5,6 @@ from urllib.parse import quote
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from ..utils.gifts import FIXED_GIFTS
-from ..utils.stars import format_stars
 
 MENU_MAIN = "menu:main"
 MENU_PROFILE = "menu:profile"
@@ -78,18 +77,17 @@ def earn_kb(ref_link: str) -> InlineKeyboardMarkup:
     )
 
 
-def gifts_kb(balance_tenths: int) -> InlineKeyboardMarkup:
+def gifts_kb() -> InlineKeyboardMarkup:
     rows = []
+    row = []
     for gift in FIXED_GIFTS:
-        if gift.stars * 10 <= balance_tenths:
-            rows.append(
-                [
-                    _btn(
-                        f"{gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}",
-                        f"wd:gift:{gift.id}",
-                    )
-                ]
-            )
+        row.append(_btn(f"{gift.emoji} {gift.stars} ★", f"wd:gift:{gift.id}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([_btn("🎁 Подарить другу", "wd:friend")])
     rows.append([_btn("⬅️ Назад", MENU_MAIN)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

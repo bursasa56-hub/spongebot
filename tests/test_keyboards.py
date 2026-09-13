@@ -33,11 +33,13 @@ def test_main_menu_has_all_buttons():
         assert expected in data
 
 
-def test_gifts_kb_only_affordable():
-    kb = gifts_kb(200)
+def test_gifts_kb_two_per_row_and_all_gifts():
+    kb = gifts_kb()
+    assert len(kb.inline_keyboard[0]) == 2
     ids = [b.callback_data for row in kb.inline_keyboard for b in row]
     assert "wd:gift:bear" in ids
-    assert "wd:gift:rose" not in ids
+    assert "wd:gift:diamond" in ids
+    assert "wd:friend" in ids
 
 
 def test_task_kb_has_check_and_skip():
