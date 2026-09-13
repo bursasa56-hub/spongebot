@@ -81,6 +81,8 @@ class TaskItem(Base):
     chat_id: Mapped[str | None] = mapped_column(String(64))
     reward_tenths: Mapped[int] = mapped_column(Integer, default=5)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    max_completions: Mapped[int] = mapped_column(Integer, default=0)
     partner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("partners.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

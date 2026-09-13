@@ -24,6 +24,8 @@ from ..keyboards.admin import (
     sponsor_type_kb,
     sponsors_admin_kb,
     task_channel_subtype_kb,
+    task_duration_kb,
+    task_quota_kb,
     task_type_kb,
     tasks_admin_kb,
 )
@@ -69,6 +71,8 @@ class AdminStates(StatesGroup):
     task_link = State()
     task_title = State()
     task_reward = State()
+    task_hours = State()
+    task_quota = State()
     task_partner = State()
     partner_name = State()
     settings_api_url = State()
@@ -688,7 +692,7 @@ async def admin_task_title(message: Message, state: FSMContext) -> None:
 
 
 @router_admin.message(AdminStates.task_reward, IsAdmin())
-async def admin_task_reward(message: Message, state: FSMContext, session, bot) -> None:
+async def admin_task_reward(message: Message, state: FSMContext) -> None:
     try:
         reward = stars_to_tenths(float((message.text or "").replace(",", ".")))
     except ValueError:
@@ -696,9 +700,70 @@ async def admin_task_reward(message: Message, state: FSMContext, session, bot) -
         return
 
     await state.update_data(reward=reward)
-    data = await state.get_data()
+    await message.answer("Срок действия?", reply_markup=task_duration_kb())
 
-    if data["type"] == "bot":
+
+@router_admin.callback_query(F.data.startswith("admin:task:duration:"), IsAdmin())
+async def admin_task_duration(callback: CallbackQuery, state: FSMContext) -> None:
+    value = callback.data.split(":")[3]
+    if value == "0":
+        await state.update_data(hours=0)
+        await callback.message.answer(
+            "Лимит прохождений?", reply_markup=task_quota_kb()
+        )
+    else:
+        await state.set_state(AdminStates.task_hours)
+        await callback.message.answer(
+            "Сколько часов?", reply_markup=back_to_admin_kb()
+        )
+    await callback.answer()
+
+
+@router_admin.message(AdminStates.task_hours, IsAdmin())
+async def admin_task_hours(message: Message, state: FSMContext) -> None:
+    try:
+        hours = int((message.text or "").strip())
+        if hours < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("Введи целое число ≥ 0.")
+        return
+    await state.update_data(hours=hours)
+    await message.answer("Лимит прохождений?", reply_markup=task_quota_kb())
+
+
+@router_admin.callback_query(F.data.startswith("admin:task:quota:"), IsAdmin())
+async def admin_task_quota_choice(
+    callback: CallbackQuery, state: FSMContext, session, bot
+) -> None:
+    value = callback.data.split(":")[3]
+    if value == "0":
+        await state.update_data(quota=0)
+        await _after_task_quota(bot, callback.message, state, session)
+    else:
+        await state.set_state(AdminStates.task_quota)
+        await callback.message.answer(
+            "Сколько прохождений?", reply_markup=back_to_admin_kb()
+        )
+    await callback.answer()
+
+
+@router_admin.message(AdminStates.task_quota, IsAdmin())
+async def admin_task_quota(message: Message, state: FSMContext, session, bot) -> None:
+    try:
+        quota = int((message.text or "").strip())
+        if quota < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("Введи целое число ≥ 0.")
+        return
+    await state.update_data(quota=quota)
+    await _after_task_quota(bot, message, state, session)
+
+
+async def _after_task_quota(bot, message, state: FSMContext, session) -> None:
+    data = await state.get_data()
+    if data.get("type") == "bot":
         partners = await list_partners(session)
         await state.set_state(AdminStates.task_partner)
         await message.answer(
@@ -721,6 +786,9 @@ async def admin_task_partner(
 async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> None:
     data = await state.get_data()
     subtype = data.get("subtype", "public_channel")
+    hours = data.get("hours", 0)
+    quota = data.get("quota", 0)
+    expires_at = datetime.utcnow() + timedelta(hours=hours) if hours else None
 
     try:
         chat_ref = parse_chat_ref(data["url"])
@@ -776,6 +844,8 @@ async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> 
         url=url,
         chat_id=chat_ref if data["type"] == "channel" else None,
         reward_tenths=data["reward"],
+        expires_at=expires_at,
+        max_completions=quota,
         partner_id=partner_id,
     )
     session.add(task)

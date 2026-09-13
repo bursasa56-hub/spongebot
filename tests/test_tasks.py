@@ -1,7 +1,13 @@
+from datetime import datetime, timedelta
+
 import pytest
 
 from bot.db.models import TaskItem, User
-from bot.services.tasks import available_tasks, complete_task
+from bot.services.tasks import (
+    available_tasks,
+    complete_task,
+    count_task_completions,
+)
 
 
 async def _make_user(session, uid=1):
@@ -47,3 +53,45 @@ async def test_inactive_task_not_completable(session):
     session.add(task)
     await session.commit()
     assert await complete_task(session, 1, task.id) is None
+
+
+@pytest.mark.asyncio
+async def test_expired_task_not_available(session):
+    await _make_user(session)
+    task = TaskItem(
+        type="channel",
+        title="T",
+        url="u",
+        chat_id="@t",
+        expires_at=datetime.utcnow() - timedelta(hours=1),
+    )
+    session.add(task)
+    await session.commit()
+    assert await available_tasks(session, 1) == []
+
+
+@pytest.mark.asyncio
+async def test_quota_reached_task_not_available_to_others(session):
+    await _make_user(session, uid=1)
+    await _make_user(session, uid=2)
+    task = TaskItem(
+        type="channel", title="T", url="u", chat_id="@t", max_completions=1
+    )
+    session.add(task)
+    await session.commit()
+
+    await complete_task(session, 1, task.id)
+    assert await available_tasks(session, 1) == []
+    assert await available_tasks(session, 2) == []
+
+
+@pytest.mark.asyncio
+async def test_count_task_completions(session):
+    await _make_user(session)
+    task = TaskItem(type="channel", title="T", url="u", chat_id="@t")
+    session.add(task)
+    await session.commit()
+
+    assert await count_task_completions(session, task.id) == 0
+    await complete_task(session, 1, task.id)
+    assert await count_task_completions(session, task.id) == 1

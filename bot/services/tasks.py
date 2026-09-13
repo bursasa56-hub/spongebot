@@ -7,14 +7,36 @@ from ..db.models import TaskItem, User, UserTask
 from .subscriptions import is_member
 
 
+async def count_task_completions(session: AsyncSession, task_id: int) -> int:
+    from sqlalchemy import func
+
+    return (
+        await session.execute(
+            select(func.count()).select_from(UserTask).where(UserTask.task_id == task_id)
+        )
+    ).scalar_one()
+
+
 async def available_tasks(session: AsyncSession, user_id: int) -> list[TaskItem]:
+    from datetime import datetime
+
+    now = datetime.utcnow()
     done = select(UserTask.task_id).where(UserTask.user_id == user_id)
     res = await session.execute(
         select(TaskItem)
         .where(TaskItem.active.is_(True), TaskItem.id.not_in(done))
         .order_by(TaskItem.id)
     )
-    return list(res.scalars().all())
+    result = []
+    for task in res.scalars().all():
+        if task.expires_at is not None and task.expires_at <= now:
+            continue
+        if task.max_completions and (
+            await count_task_completions(session, task.id) >= task.max_completions
+        ):
+            continue
+        result.append(task)
+    return result
 
 
 async def complete_task(

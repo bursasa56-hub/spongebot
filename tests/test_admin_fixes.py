@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 
 from bot.db.models import TaskItem, User
 from bot.handlers import admin as admin_handlers
@@ -253,3 +254,34 @@ async def test_admin_reset_user_unknown_id_answers_error(session):
     assert message.answers
     assert "не найден" in message.answers[-1][0]
     assert state.cleared is False
+
+
+@pytest.mark.asyncio
+async def test_task_duration_one_sets_hours_state():
+    callback = FakeCallback("admin:task:duration:1")
+    state = FakeState({"type": "channel", "url": "@chan", "title": "T", "reward": 5})
+
+    await admin_handlers.admin_task_duration(callback, state)
+
+    assert state.state == admin_handlers.AdminStates.task_hours
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_task_quota_zero_finishes_channel(session):
+    bot = FakeBot()
+    callback = FakeCallback("admin:task:quota:0")
+    state = FakeState(
+        {"type": "channel", "url": "@chan", "title": "T", "reward": 5, "hours": 0}
+    )
+
+    await admin_handlers.admin_task_quota_choice(callback, state, session, bot)
+
+    assert state.cleared is True
+    assert callback.message.answers
+    assert callback.answered is True
+    res = await session.execute(select(TaskItem))
+    task = res.scalar_one()
+    assert task.max_completions == 0
+    assert task.expires_at is None

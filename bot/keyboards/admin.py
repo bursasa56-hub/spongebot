@@ -128,6 +128,22 @@ def task_channel_subtype_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def task_duration_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("♾ Бессрочно", "admin:task:duration:0")],
+        [_btn("⏳ На время", "admin:task:duration:1")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
+def task_quota_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("♾ Без лимита", "admin:task:quota:0")],
+        [_btn("🔢 На количество", "admin:task:quota:1")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
 def tasks_admin_kb(tasks) -> InlineKeyboardMarkup:
     rows = [[_btn("➕ Добавить задание", "admin:task:add")]]
     for t in tasks:
