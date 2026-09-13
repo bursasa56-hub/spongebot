@@ -49,7 +49,8 @@ def withdraw_text(balance_tenths: int, invited: int) -> str:
 
 
 @router_withdraw.callback_query(F.data == MENU_WITHDRAW)
-async def show_gifts(callback: CallbackQuery, session) -> None:
+async def show_gifts(callback: CallbackQuery, state: FSMContext, session) -> None:
+    await state.update_data(to_friend=False)
     user = await get_user(session, callback.from_user.id)
     if user is None:
         await callback.answer("Пользователь не найден.", show_alert=True)

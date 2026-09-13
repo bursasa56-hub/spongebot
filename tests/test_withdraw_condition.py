@@ -27,6 +27,17 @@ class FakeCallback:
         self.answers.append((text, show_alert))
 
 
+class FakeState:
+    def __init__(self, data=None):
+        self.data = dict(data or {})
+
+    async def update_data(self, **kwargs):
+        self.data.update(kwargs)
+
+    async def get_data(self):
+        return dict(self.data)
+
+
 def _last_sent(callback):
     msg = callback.message
     if msg.photos:
@@ -46,7 +57,7 @@ async def test_show_gifts_blocks_without_five_friends(session):
     await session.commit()
     callback = FakeCallback(user_id=1)
 
-    await show_gifts(callback, session)
+    await show_gifts(callback, FakeState(), session)
 
     text, markup = _last_sent(callback)
     assert "5" in text
@@ -64,7 +75,23 @@ async def test_show_gifts_shows_grid_with_five_friends(session):
     await session.commit()
     callback = FakeCallback(user_id=1)
 
-    await show_gifts(callback, session)
+    await show_gifts(callback, FakeState(), session)
 
     _, markup = _last_sent(callback)
     assert "wd:gift:bear" in _callbacks(markup)
+
+
+@pytest.mark.asyncio
+async def test_show_gifts_resets_to_friend_flag(session):
+    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
+    for uid in range(2, 7):
+        session.add(
+            User(id=uid, username=f"f{uid}", first_name="F", referred_by=1)
+        )
+    await session.commit()
+    callback = FakeCallback(user_id=1)
+    state = FakeState({"to_friend": True})
+
+    await show_gifts(callback, state, session)
+
+    assert await state.get_data() == {"to_friend": False}
