@@ -60,6 +60,7 @@ async def rps_bet(callback: CallbackQuery, state: FSMContext, session) -> None:
         return
     bet = int(value)
     await state.update_data(bet=bet)
+    await state.set_state(None)
     await callback.message.answer(
         f"Ставка: {format_stars(bet)}\n\nВыбери ход:", reply_markup=rps_kb()
     )
