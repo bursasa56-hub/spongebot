@@ -52,23 +52,11 @@ def withdraw_text(balance_tenths: int, invited: int) -> str:
 async def show_gifts(callback: CallbackQuery, state: FSMContext, session) -> None:
     await state.update_data(to_friend=False)
     user = await get_user(session, callback.from_user.id)
-    if user is None:
-        await callback.answer("Пользователь не найден.", show_alert=True)
-        return
-    invited = await count_referrals(session, user.id)
-    if invited < MIN_INVITED:
-        await send_screen(
-            callback.message,
-            withdraw_text(user.balance_tenths, invited)
-            + "\n\n❌ Пока нельзя: пригласи минимум 5 друзей.",
-            cancel_kb(),
-            asset="withdraw",
-        )
-        await callback.answer()
-        return
+    invited = await count_referrals(session, user.id) if user is not None else 0
+    balance = user.balance_tenths if user is not None else 0
     await send_screen(
         callback.message,
-        withdraw_text(user.balance_tenths, invited),
+        withdraw_text(balance, invited),
         gifts_kb(),
         asset="withdraw",
     )
@@ -77,18 +65,13 @@ async def show_gifts(callback: CallbackQuery, state: FSMContext, session) -> Non
 
 @router_withdraw.callback_query(F.data == "wd:friend")
 async def gift_to_friend(callback: CallbackQuery, state: FSMContext, session) -> None:
-    user = await get_user(session, callback.from_user.id)
-    if user is None:
-        await callback.answer("Пользователь не найден.", show_alert=True)
-        return
-    invited = await count_referrals(session, user.id)
-    if invited < MIN_INVITED:
-        await callback.answer("Нужно минимум 5 друзей.", show_alert=True)
-        return
     await state.update_data(to_friend=True)
+    user = await get_user(session, callback.from_user.id)
+    invited = await count_referrals(session, user.id) if user is not None else 0
+    balance = user.balance_tenths if user is not None else 0
     await send_screen(
         callback.message,
-        withdraw_text(user.balance_tenths, invited)
+        withdraw_text(balance, invited)
         + "\n\n🎁 Выбери подарок для друга:",
         gifts_kb(),
         asset="withdraw",
@@ -101,14 +84,24 @@ async def choose_gift(
     callback: CallbackQuery, state: FSMContext, session
 ) -> None:
     gift_id = callback.data.split(":")[2]
+    user = await get_user(session, callback.from_user.id)
+    if user is None:
+        await callback.answer("Профиль не найден.", show_alert=True)
+        return
     gift = GIFTS_BY_ID.get(gift_id)
     if gift is None:
         await callback.answer("Подарок не найден.", show_alert=True)
         return
-    user = await get_user(session, callback.from_user.id)
-    invited = await count_referrals(session, user.id) if user is not None else 0
+    invited = await count_referrals(session, user.id)
     if invited < MIN_INVITED:
-        await callback.answer("Нужно минимум 5 друзей.", show_alert=True)
+        await callback.answer(
+            "❌ Для вывода нужно пригласить минимум 5 друзей.", show_alert=True
+        )
+        return
+    if user.balance_tenths < gift.stars * 10:
+        await callback.answer(
+            "❌ Недостаточно звёзд для этого подарка.", show_alert=True
+        )
         return
     to_friend = (await state.get_data()).get("to_friend", False)
     await state.update_data(gift_id=gift.id)

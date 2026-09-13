@@ -3,7 +3,7 @@ from __future__ import annotations
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
-from ..keyboards.user import MENU_TASKS, main_menu_kb, task_kb
+from ..keyboards.user import MENU_TASKS, back_kb, task_kb
 from ..services.tasks import available_tasks, complete_task, self_verifiable
 from ..utils.stars import format_stars
 
@@ -34,8 +34,8 @@ async def show_tasks(callback: CallbackQuery, session) -> None:
     tasks = await available_tasks(session, callback.from_user.id)
     if not tasks:
         await callback.message.answer(
-            "📋 Пока нет доступных заданий (доступно: 0). Заходи позже!",
-            reply_markup=main_menu_kb(),
+            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            reply_markup=back_kb(),
         )
         await callback.answer()
         return
@@ -77,7 +77,8 @@ async def check_task(callback: CallbackQuery, session, bot) -> None:
     nxt = await next_task(session, callback.from_user.id)
     if nxt is None:
         await callback.message.answer(
-            "📋 Задания закончились! Заходи позже.", reply_markup=main_menu_kb()
+            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            reply_markup=back_kb(),
         )
     else:
         await callback.message.answer(task_text(nxt), reply_markup=task_kb(nxt))
@@ -90,7 +91,8 @@ async def skip_task(callback: CallbackQuery, session) -> None:
     if nxt is None:
         await callback.answer("Больше заданий нет.", show_alert=True)
         await callback.message.answer(
-            "📋 Пока нет доступных заданий. Заходи позже!", reply_markup=main_menu_kb()
+            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            reply_markup=back_kb(),
         )
         return
     await callback.message.answer(task_text(nxt), reply_markup=task_kb(nxt))

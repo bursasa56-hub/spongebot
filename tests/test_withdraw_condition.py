@@ -1,7 +1,7 @@
 import pytest
 
 from bot.db.models import User
-from bot.handlers.withdraw import show_gifts
+from bot.handlers.withdraw import WithdrawStates, choose_gift, show_gifts
 
 
 class FakeMessage:
@@ -22,20 +22,29 @@ class FakeCallback:
         self.from_user = type("U", (), {"id": user_id})()
         self.message = FakeMessage()
         self.answers = []
+        self.answered = False
 
     async def answer(self, text=None, show_alert=False):
         self.answers.append((text, show_alert))
+        self.answered = True
 
 
 class FakeState:
     def __init__(self, data=None):
         self.data = dict(data or {})
+        self.state = None
 
     async def update_data(self, **kwargs):
         self.data.update(kwargs)
 
     async def get_data(self):
         return dict(self.data)
+
+    async def set_state(self, state):
+        self.state = state
+
+    async def get_state(self):
+        return self.state
 
 
 def _last_sent(callback):
@@ -52,7 +61,7 @@ def _callbacks(markup):
 
 
 @pytest.mark.asyncio
-async def test_show_gifts_blocks_without_five_friends(session):
+async def test_show_gifts_shows_grid_without_five_friends(session):
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
     await session.commit()
     callback = FakeCallback(user_id=1)
@@ -62,7 +71,39 @@ async def test_show_gifts_blocks_without_five_friends(session):
     text, markup = _last_sent(callback)
     assert "5" in text
     callbacks = _callbacks(markup)
-    assert not any(c.startswith("wd:gift:") for c in callbacks)
+    assert "wd:gift:bear" in callbacks
+
+
+@pytest.mark.asyncio
+async def test_choose_gift_alerts_without_five_friends(session):
+    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
+    await session.commit()
+    callback = FakeCallback(data="wd:gift:bear", user_id=1)
+    state = FakeState()
+
+    await choose_gift(callback, state, session)
+
+    assert callback.answered is True
+    alert_text, show_alert = callback.answers[-1]
+    assert show_alert is True
+    assert alert_text == "❌ Для вывода нужно пригласить минимум 5 друзей."
+    assert await state.get_state() is None
+
+
+@pytest.mark.asyncio
+async def test_choose_gift_advances_with_five_friends_and_balance(session):
+    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
+    for uid in range(2, 7):
+        session.add(
+            User(id=uid, username=f"f{uid}", first_name="F", referred_by=1)
+        )
+    await session.commit()
+    callback = FakeCallback(data="wd:gift:bear", user_id=1)
+    state = FakeState()
+
+    await choose_gift(callback, state, session)
+
+    assert await state.get_state() == WithdrawStates.waiting_username
 
 
 @pytest.mark.asyncio

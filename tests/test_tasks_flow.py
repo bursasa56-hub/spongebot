@@ -62,3 +62,20 @@ async def test_show_tasks_sends_new_message_with_count(session):
     assert "доступно" in text
     assert "доступно: 1" in text
     assert text.count("Задани") == 1
+
+
+@pytest.mark.asyncio
+async def test_show_tasks_empty_sends_back_screen(session):
+    session.add(User(id=1, username="u", first_name="U"))
+    await session.commit()
+    callback = FakeCallback("menu:tasks", user_id=1)
+
+    await show_tasks(callback, session)
+
+    assert callback.answered is True
+    assert callback.message.answers
+    text, kwargs = callback.message.answers[-1]
+    assert "Пока нет доступных заданий" in text
+    markup = kwargs["reply_markup"]
+    callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+    assert "menu:main" in callbacks
