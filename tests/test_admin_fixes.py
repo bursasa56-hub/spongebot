@@ -57,7 +57,7 @@ async def test_finish_task_escapes_title(session):
     )
     message = FakeMessage()
 
-    await admin_handlers._finish_task(message, state, session, None)
+    await admin_handlers._finish_task(FakeBot(), message, state, session, None)
 
     text = message.answers[-1][0]
     assert "&lt;b&gt;Evil&lt;/b&gt;" in text
@@ -193,6 +193,19 @@ async def test_task_type_bot_stores_type_and_asks_link():
 
     assert (await state.get_data())["type"] == "bot"
     assert state.state == admin_handlers.AdminStates.task_link
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_task_type_channel_asks_subtype():
+    callback = FakeCallback("admin:task:type:channel")
+    state = FakeState()
+
+    await admin_handlers.admin_task_type(callback, state)
+
+    assert (await state.get_data())["type"] == "channel"
+    assert state.state == admin_handlers.AdminStates.task_subtype
     assert callback.message.answers
     assert callback.answered is True
 

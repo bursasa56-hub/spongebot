@@ -23,6 +23,7 @@ from ..keyboards.admin import (
     sponsor_quota_kb,
     sponsor_type_kb,
     sponsors_admin_kb,
+    task_channel_subtype_kb,
     task_type_kb,
     tasks_admin_kb,
 )
@@ -64,6 +65,7 @@ class AdminStates(StatesGroup):
     sponsor_quota = State()
     sponsor_partner = State()
     task_type = State()
+    task_subtype = State()
     task_link = State()
     task_title = State()
     task_reward = State()
@@ -640,9 +642,29 @@ async def admin_task_add(callback: CallbackQuery, state: FSMContext) -> None:
 async def admin_task_type(callback: CallbackQuery, state: FSMContext) -> None:
     task_type = callback.data.split(":")[3]
     await state.update_data(type=task_type)
+    if task_type == "channel":
+        await state.set_state(AdminStates.task_subtype)
+        await callback.message.answer(
+            "Какой это канал?", reply_markup=task_channel_subtype_kb()
+        )
+    else:
+        await state.set_state(AdminStates.task_link)
+        await callback.message.answer(
+            "Отправь ссылку (@username или t.me/...).",
+            reply_markup=back_to_admin_kb(),
+        )
+    await callback.answer()
+
+
+@router_admin.callback_query(F.data.startswith("admin:task:subtype:"), IsAdmin())
+async def admin_task_subtype(callback: CallbackQuery, state: FSMContext) -> None:
+    subtype = callback.data.split(":")[3]
+    await state.update_data(subtype=subtype, type="channel")
     await state.set_state(AdminStates.task_link)
     await callback.message.answer(
-        "Отправь ссылку (@username или t.me/...).", reply_markup=back_to_admin_kb()
+        "Отправь ссылку на канал (@username, t.me/... или id -100...). "
+        "Для частного канала отправь его id -100..., бот должен быть админом.",
+        reply_markup=back_to_admin_kb(),
     )
     await callback.answer()
 
@@ -666,7 +688,7 @@ async def admin_task_title(message: Message, state: FSMContext) -> None:
 
 
 @router_admin.message(AdminStates.task_reward, IsAdmin())
-async def admin_task_reward(message: Message, state: FSMContext, session) -> None:
+async def admin_task_reward(message: Message, state: FSMContext, session, bot) -> None:
     try:
         reward = stars_to_tenths(float((message.text or "").replace(",", ".")))
     except ValueError:
@@ -684,18 +706,21 @@ async def admin_task_reward(message: Message, state: FSMContext, session) -> Non
             reply_markup=partner_choice_kb(partners, "admin:task:partner"),
         )
     else:
-        await _finish_task(message, state, session, None)
+        await _finish_task(bot, message, state, session, None)
 
 
 @router_admin.callback_query(F.data.startswith("admin:task:partner:"), IsAdmin())
-async def admin_task_partner(callback: CallbackQuery, state: FSMContext, session) -> None:
+async def admin_task_partner(
+    callback: CallbackQuery, state: FSMContext, session, bot
+) -> None:
     partner_id = int(callback.data.split(":")[3]) or None
-    await _finish_task(callback.message, state, session, partner_id)
+    await _finish_task(bot, callback.message, state, session, partner_id)
     await callback.answer()
 
 
-async def _finish_task(message, state: FSMContext, session, partner_id) -> None:
+async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> None:
     data = await state.get_data()
+    subtype = data.get("subtype", "public_channel")
 
     try:
         chat_ref = parse_chat_ref(data["url"])
@@ -704,10 +729,51 @@ async def _finish_task(message, state: FSMContext, session, partner_id) -> None:
         await message.answer(f"❌ {exc}", reply_markup=admin_menu_kb())
         return
 
+    url = data["url"]
+    if data["type"] == "channel" and subtype == "private_request":
+        try:
+            chat = await bot.get_chat(chat_ref)
+        except Exception:
+            await state.clear()
+            await message.answer(
+                "❌ Не удалось получить канал. Проверьте id и что бот добавлен в канал.",
+                reply_markup=admin_menu_kb(),
+            )
+            return
+        try:
+            me = await bot.get_chat_member(chat_id=chat.id, user_id=bot.id)
+        except Exception:
+            await state.clear()
+            await message.answer(
+                "❌ Бот не администратор этого канала. Добавьте бота в админы и повторите.",
+                reply_markup=admin_menu_kb(),
+            )
+            return
+        if getattr(me, "status", None) not in {"administrator", "creator"}:
+            await state.clear()
+            await message.answer(
+                "❌ Бот не администратор этого канала. Добавьте бота в админы и повторите.",
+                reply_markup=admin_menu_kb(),
+            )
+            return
+        try:
+            invite = await bot.create_chat_invite_link(
+                chat.id, creates_join_request=True
+            )
+        except Exception:
+            await state.clear()
+            await message.answer(
+                "❌ Не удалось создать ссылку-приглашение.",
+                reply_markup=admin_menu_kb(),
+            )
+            return
+        url = invite.invite_link
+
     task = TaskItem(
         type=data["type"],
+        subtype=subtype,
         title=data["title"],
-        url=data["url"],
+        url=url,
         chat_id=chat_ref if data["type"] == "channel" else None,
         reward_tenths=data["reward"],
         partner_id=partner_id,

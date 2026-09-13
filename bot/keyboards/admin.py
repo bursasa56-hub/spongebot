@@ -119,6 +119,15 @@ def task_type_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def task_channel_subtype_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("📢 Публичный канал", "admin:task:subtype:public_channel")],
+        [_btn("💬 Чат (группа)", "admin:task:subtype:chat")],
+        [_btn("🔒 Частный канал (заявка)", "admin:task:subtype:private_request")],
+        [_btn("⬅️ Назад", "admin:menu")],
+    ])
+
+
 def tasks_admin_kb(tasks) -> InlineKeyboardMarkup:
     rows = [[_btn("➕ Добавить задание", "admin:task:add")]]
     for t in tasks:

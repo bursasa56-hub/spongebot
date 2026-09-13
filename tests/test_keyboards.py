@@ -11,6 +11,7 @@ from bot.keyboards.admin import (
     sponsor_quota_kb,
     sponsor_type_kb,
     sponsors_admin_kb,
+    task_channel_subtype_kb,
     task_type_kb,
 )
 from bot.keyboards.user import earn_kb, gifts_kb, main_menu_kb, task_kb
@@ -121,6 +122,13 @@ def test_task_type_kb_callbacks():
     data = _callbacks(task_type_kb())
     assert "admin:task:type:channel" in data
     assert "admin:task:type:bot" in data
+
+
+def test_task_channel_subtype_kb_callbacks():
+    data = _callbacks(task_channel_subtype_kb())
+    assert "admin:task:subtype:public_channel" in data
+    assert "admin:task:subtype:chat" in data
+    assert "admin:task:subtype:private_request" in data
 
 
 def test_admin_menu_has_promos():

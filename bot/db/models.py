@@ -32,6 +32,8 @@ class User(Base):
     total_withdrawn_tenths: Mapped[int] = mapped_column(Integer, default=0)
     subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_daily_at: Mapped[datetime | None] = mapped_column(DateTime)
+    games_played: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -73,6 +75,7 @@ class TaskItem(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     type: Mapped[str] = mapped_column(String(16))
+    subtype: Mapped[str] = mapped_column(String(32), default="public_channel")
     title: Mapped[str] = mapped_column(String(255))
     url: Mapped[str] = mapped_column(String(255))
     chat_id: Mapped[str | None] = mapped_column(String(64))
