@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -23,31 +21,7 @@ def ensure_db_dir(db_path: str) -> None:
         parent.mkdir(parents=True, exist_ok=True)
 
 
-def normalize_database_url(database_url: str) -> tuple[str, dict]:
-    """Return (async SQLAlchemy URL, connect_args) for a Postgres URL."""
-    url = database_url.strip()
-    if url.startswith("postgres://"):
-        url = "postgresql+asyncpg://" + url[len("postgres://"):]
-    elif url.startswith("postgresql://"):
-        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
-
-    parts = urlsplit(url)
-    query = dict(parse_qsl(parts.query))
-    connect_args: dict = {}
-    sslmode = query.pop("sslmode", None)
-    query.pop("channel_binding", None)
-    if sslmode and sslmode != "disable":
-        connect_args["ssl"] = True
-    clean = urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
-    )
-    return clean, connect_args
-
-
-def create_engine(db_path: str, database_url: str | None = None) -> AsyncEngine:
-    if database_url:
-        url, connect_args = normalize_database_url(database_url)
-        return create_async_engine(url, echo=False, connect_args=connect_args, pool_pre_ping=True)
+def create_engine(db_path: str) -> AsyncEngine:
     if db_path == ":memory:":
         url = "sqlite+aiosqlite:///:memory:"
     else:

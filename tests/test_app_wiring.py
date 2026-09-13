@@ -9,7 +9,6 @@ def _config():
         admin_chat_id=-100,
         support_url="https://t.me/s",
         db_path=":memory:",
-        database_url=None,
         partner_api_host="127.0.0.1",
         partner_api_port=8080,
     )
