@@ -5,11 +5,13 @@ from urllib.parse import quote
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from ..utils.gifts import FIXED_GIFTS
+from ..utils.stars import format_stars
 
 MENU_MAIN = "menu:main"
 MENU_PROFILE = "menu:profile"
 MENU_INSTRUCTION = "menu:instruction"
 MENU_TASKS = "menu:tasks"
+MENU_GAMES = "menu:games"
 MENU_WITHDRAW = "menu:withdraw"
 MENU_EARN = "menu:earn"
 MENU_PROMO = "menu:promo"
@@ -26,6 +28,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             [_btn("💰 Заработать звёзды", MENU_EARN)],
             [_btn("👤 Профиль", MENU_PROFILE)],
             [_btn("📋 Задания", MENU_TASKS)],
+            [_btn("🎮 Игры", MENU_GAMES)],
             [_btn("💸 Вывод звёзд", MENU_WITHDRAW)],
             [_btn("🎟 Промокод", MENU_PROMO)],
             [_btn("📖 Инструкция", MENU_INSTRUCTION)],
@@ -62,6 +65,31 @@ def task_kb(task) -> InlineKeyboardMarkup:
             [_btn("⬅️ Назад", MENU_MAIN)],
         ]
     )
+
+
+def games_menu_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("🪨✂️📄 Камень-ножницы-бумага", "game:rps")],
+        [_btn("⬅️ Назад", MENU_MAIN)],
+    ])
+
+
+def bet_kb(balance_tenths: int) -> InlineKeyboardMarkup:
+    rows = []
+    for tenths in (5, 10, 20, 50, 100):
+        if tenths <= balance_tenths:
+            rows.append([_btn(f"⭐ Ставка {format_stars(tenths)}", f"game:bet:{tenths}")])
+    rows.append([_btn("✏️ Своя сумма", "game:bet:custom")])
+    rows.append([_btn("⬅️ Назад", MENU_MAIN)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def rps_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn("🪨 Камень", "game:move:rock"), _btn("✂️ Ножницы", "game:move:scissors")],
+        [_btn("📄 Бумага", "game:move:paper")],
+        [_btn("⬅️ Назад", MENU_MAIN)],
+    ])
 
 
 def earn_kb(ref_link: str) -> InlineKeyboardMarkup:

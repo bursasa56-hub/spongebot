@@ -14,7 +14,15 @@ from bot.keyboards.admin import (
     task_channel_subtype_kb,
     task_type_kb,
 )
-from bot.keyboards.user import earn_kb, gifts_kb, main_menu_kb, task_kb
+from bot.keyboards.user import (
+    bet_kb,
+    earn_kb,
+    games_menu_kb,
+    gifts_kb,
+    main_menu_kb,
+    rps_kb,
+    task_kb,
+)
 from bot.utils.gifts import FIXED_GIFTS
 
 
@@ -152,3 +160,20 @@ def test_promos_admin_kb_renders_promos():
     data = _callbacks(kb)
     assert "admin:promo:add" in data
     assert "admin:promo:del:4" in data
+
+
+def test_games_menu_kb_has_rps():
+    assert "game:rps" in _callbacks(games_menu_kb())
+
+
+def test_bet_kb_has_presets_and_custom():
+    data = _callbacks(bet_kb(100))
+    assert "game:bet:5" in data
+    assert "game:bet:custom" in data
+
+
+def test_rps_kb_has_all_moves():
+    data = _callbacks(rps_kb())
+    assert "game:move:rock" in data
+    assert "game:move:scissors" in data
+    assert "game:move:paper" in data

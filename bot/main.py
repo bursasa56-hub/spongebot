@@ -11,6 +11,7 @@ from aiohttp import web
 from .config import Config, load_config
 from .db.session import create_engine, ensure_db_dir, init_db, make_session_factory
 from .handlers.admin import router_admin
+from .handlers.games import router_games
 from .handlers.join_requests import router_join
 from .handlers.promo import router_promo
 from .handlers.start import router_start
@@ -39,6 +40,7 @@ def build_dispatcher(config: Config, session_factory) -> Dispatcher:
     dp.include_router(router_start)
     dp.include_router(router_user)
     dp.include_router(router_tasks)
+    dp.include_router(router_games)
     dp.include_router(router_promo)
     dp.include_router(router_join)
     dp.include_router(router_withdraw)
