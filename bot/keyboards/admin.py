@@ -15,6 +15,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
             [_btn("💸 Заявки на вывод", "admin:withdrawals")],
             [_btn("🤝 Партнёры", "admin:partners"), _btn("⚙️ Настройки", "admin:settings")],
             [_btn("🎟 Промокоды", "admin:promos")],
+            [_btn("🧹 Обнулить звёзды", "admin:reset")],
         ]
     )
 

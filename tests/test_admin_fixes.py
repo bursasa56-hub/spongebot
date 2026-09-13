@@ -1,6 +1,6 @@
 import pytest
 
-from bot.db.models import TaskItem
+from bot.db.models import TaskItem, User
 from bot.handlers import admin as admin_handlers
 from bot.services.partners import create_partner
 from bot.services.promos import create_promo, list_promos
@@ -210,3 +210,33 @@ async def test_admin_del_task_hard_deletes(session):
     assert await session.get(TaskItem, task_id) is None
     assert callback.message.answers
     assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_admin_reset_user_zeroes_balance_only(session):
+    user = User(id=555, balance_tenths=50, total_earned_tenths=120)
+    session.add(user)
+    await session.commit()
+
+    message = FakeMessage("555")
+    state = FakeState()
+
+    await admin_handlers.admin_reset_user(message, state, session)
+
+    assert user.balance_tenths == 0
+    assert user.total_earned_tenths == 120
+    assert state.cleared is True
+    assert message.answers
+    assert "обнулены" in message.answers[-1][0]
+
+
+@pytest.mark.asyncio
+async def test_admin_reset_user_unknown_id_answers_error(session):
+    message = FakeMessage("999999")
+    state = FakeState()
+
+    await admin_handlers.admin_reset_user(message, state, session)
+
+    assert message.answers
+    assert "не найден" in message.answers[-1][0]
+    assert state.cleared is False

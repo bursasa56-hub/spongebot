@@ -74,6 +74,7 @@ class AdminStates(StatesGroup):
     promo_code = State()
     promo_stars = State()
     promo_uses = State()
+    reset_user_id = State()
 
 
 def stats_text(stats) -> str:
@@ -113,6 +114,39 @@ async def admin_back(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await callback.message.answer("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
     await callback.answer()
+
+
+@router_admin.callback_query(F.data == "admin:reset", IsAdmin())
+async def admin_reset_start(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await state.set_state(AdminStates.reset_user_id)
+    await callback.message.answer(
+        "Отправь Telegram ID пользователя, у которого нужно обнулить звёзды.",
+        reply_markup=back_to_admin_kb(),
+    )
+    await callback.answer()
+
+
+@router_admin.message(AdminStates.reset_user_id, IsAdmin())
+async def admin_reset_user(message: Message, state: FSMContext, session) -> None:
+    try:
+        user_id = int((message.text or "").strip())
+    except ValueError:
+        await message.answer("Отправь числовой ID.", reply_markup=back_to_admin_kb())
+        return
+    user = await session.get(User, user_id)
+    if user is None:
+        await message.answer(
+            "❌ Пользователь не найден.", reply_markup=back_to_admin_kb()
+        )
+        return
+    user.balance_tenths = 0
+    await session.commit()
+    await state.clear()
+    await message.answer(
+        f"✅ Звёзды пользователя <code>{user_id}</code> обнулены.",
+        reply_markup=admin_menu_kb(),
+    )
 
 
 @router_admin.callback_query(F.data == "admin:stats", IsAdmin())

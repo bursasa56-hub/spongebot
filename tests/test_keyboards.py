@@ -125,6 +125,10 @@ def test_admin_menu_has_promos():
     assert "admin:promos" in _callbacks(admin_menu_kb())
 
 
+def test_admin_menu_has_reset_stars():
+    assert "admin:reset" in _callbacks(admin_menu_kb())
+
+
 def test_sponsor_channel_subtype_kb_callbacks():
     data = _callbacks(sponsor_channel_subtype_kb())
     assert "admin:sponsor:subtype:public_channel" in data
