@@ -53,9 +53,19 @@ def test_gifts_kb_two_per_row_and_all_gifts():
 
 def test_task_kb_has_check_and_skip():
     task = TaskItem(id=7, type="channel", title="T", url="u", chat_id="@t")
-    data = _callbacks(task_kb(task))
+    kb = task_kb(task)
+    data = _callbacks(kb)
     assert "task:check:7" in data
     assert "task:skip:7" in data
+    urls = [b.url for row in kb.inline_keyboard for b in row if b.url]
+    assert "u" in urls
+
+
+def test_task_kb_bot_has_start_button():
+    task = TaskItem(id=8, type="bot", title="B", url="https://t.me/somebot")
+    kb = task_kb(task)
+    urls = [b.url for row in kb.inline_keyboard for b in row if b.url]
+    assert "https://t.me/somebot" in urls
 
 
 def test_earn_kb_url_encodes_ref_link_and_text():

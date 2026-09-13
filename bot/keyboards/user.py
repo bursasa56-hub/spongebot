@@ -60,13 +60,14 @@ def instruction_kb(support_url: str) -> InlineKeyboardMarkup:
 
 
 def task_kb(task) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn("✅ Проверить", f"task:check:{task.id}")],
-            [_btn("⏭ Пропустить", f"task:skip:{task.id}")],
-            [_btn("⬅️ Назад", MENU_MAIN)],
-        ]
-    )
+    rows = []
+    if getattr(task, "url", None):
+        label = "▶️ Перейти в бота" if task.type == "bot" else "➡️ Подписаться"
+        rows.append([InlineKeyboardButton(text=label, url=task.url)])
+    rows.append([_btn("✅ Проверить", f"task:check:{task.id}")])
+    rows.append([_btn("⏭ Пропустить", f"task:skip:{task.id}")])
+    rows.append([_btn("⬅️ Назад", MENU_MAIN)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def games_menu_kb() -> InlineKeyboardMarkup:
