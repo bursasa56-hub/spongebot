@@ -44,6 +44,9 @@ def profile_text(user, bot_username: str, invited: int) -> str:
 @router_user.callback_query(F.data == MENU_PROFILE)
 async def show_profile(callback: CallbackQuery, session, bot) -> None:
     user = await get_user(session, callback.from_user.id)
+    if user is None:
+        await callback.answer("❌ Профиль не найден. Нажми /start.", show_alert=True)
+        return
     invited = await count_referrals(session, user.id)
     me = await bot.get_me()
     await send_screen(

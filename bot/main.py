@@ -22,6 +22,7 @@ from .handlers.user import router_user
 from .handlers.withdraw import router_withdraw
 from .middlewares.db import DbSessionMiddleware
 from .middlewares.subscription import SubscriptionMiddleware
+from .middlewares.user import UserRegisterMiddleware
 from .services.partner_api import create_partner_app
 
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,7 @@ def build_dispatcher(config: Config, session_factory) -> Dispatcher:
     dp = Dispatcher()
     for observer in (dp.message, dp.callback_query):
         observer.middleware(DbSessionMiddleware(session_factory))
+        observer.middleware(UserRegisterMiddleware())
         observer.middleware(SubscriptionMiddleware(config.admin_ids))
     dp.chat_join_request.middleware(DbSessionMiddleware(session_factory))
 
