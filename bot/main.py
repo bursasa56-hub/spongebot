@@ -55,8 +55,9 @@ def build_dispatcher(config: Config, session_factory) -> Dispatcher:
 
 async def main() -> None:
     config = load_config()
-    ensure_db_dir(config.db_path)
-    engine = create_engine(config.db_path)
+    if not config.database_url:
+        ensure_db_dir(config.db_path)
+    engine = create_engine(config.db_path, config.database_url)
     await init_db(engine)
     session_factory = make_session_factory(engine)
 
