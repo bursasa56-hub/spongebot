@@ -15,6 +15,7 @@ MENU_GAMES = "menu:games"
 MENU_WITHDRAW = "menu:withdraw"
 MENU_EARN = "menu:earn"
 MENU_PROMO = "menu:promo"
+MENU_DAILY = "menu:daily"
 CHECK_SUBS = "check_subs"
 
 
@@ -26,6 +27,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_btn("💰 Заработать звёзды", MENU_EARN)],
+            [_btn("🎁 Ежедневная награда", MENU_DAILY)],
             [_btn("👤 Профиль", MENU_PROFILE)],
             [_btn("📋 Задания", MENU_TASKS)],
             [_btn("🎮 Игры", MENU_GAMES)],

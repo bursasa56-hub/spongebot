@@ -122,6 +122,12 @@ async def missing_sponsors(session: AsyncSession, bot, user_id: int) -> list[Spo
     return missing
 
 
+async def needs_referral_captcha(session: AsyncSession, user) -> bool:
+    if user is None or user.referred_by is None or user.referral_credited:
+        return False
+    return len(await active_sponsors(session)) == 0
+
+
 async def mark_sponsor_done(session: AsyncSession, user_id: int, sponsor_id: int) -> bool:
     existing = await session.execute(
         select(UserSponsor).where(

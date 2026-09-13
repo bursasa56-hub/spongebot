@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.filters import CommandObject, CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from ..db.models import User
+from ..handlers.captcha import send_captcha
 from ..keyboards.user import CHECK_SUBS, MENU_MAIN, main_menu_kb, sponsor_gate_kb
 from ..services.referral import credit_referrer, register_user
-from ..services.subscriptions import missing_sponsors
+from ..services.subscriptions import missing_sponsors, needs_referral_captcha
 from ..utils.assets import send_screen
 from ..utils.stars import format_stars
 
@@ -57,11 +59,13 @@ async def _credit_and_notify(session, bot, user_id: int) -> None:
 
 @router_start.message(CommandStart())
 async def cmd_start(
-    message: Message, command: CommandObject, session, bot
+    message: Message, command: CommandObject, state: FSMContext, session, bot
 ) -> None:
     user = message.from_user
     ref_id = parse_ref(command.args)
-    await register_user(session, user.id, user.username, user.first_name, ref_id)
+    db_user = await register_user(
+        session, user.id, user.username, user.first_name, ref_id
+    )
 
     missing = await missing_sponsors(session, bot, user.id)
     if missing:
@@ -71,12 +75,16 @@ async def cmd_start(
         )
         return
 
+    if await needs_referral_captcha(session, db_user):
+        await send_captcha(message, state)
+        return
+
     await _credit_and_notify(session, bot, user.id)
     await _show_menu(message, user.id)
 
 
 @router_start.callback_query(F.data == CHECK_SUBS)
-async def check_subs(callback: CallbackQuery, session, bot) -> None:
+async def check_subs(callback: CallbackQuery, state: FSMContext, session, bot) -> None:
     user = callback.from_user
     missing = await missing_sponsors(session, bot, user.id)
     if missing:
@@ -85,6 +93,12 @@ async def check_subs(callback: CallbackQuery, session, bot) -> None:
             "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
             reply_markup=sponsor_gate_kb(missing),
         )
+        return
+
+    db_user = await session.get(User, user.id)
+    if await needs_referral_captcha(session, db_user):
+        await send_captcha(callback.message, state)
+        await callback.answer()
         return
 
     await _credit_and_notify(session, bot, user.id)

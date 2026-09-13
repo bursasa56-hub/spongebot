@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from bot.db.models import UserSponsor
+from bot.services.referral import register_user
 from bot.services.subscriptions import (
     SponsorError,
     add_bot_sponsor,
@@ -13,6 +14,7 @@ from bot.services.subscriptions import (
     delete_sponsor,
     mark_sponsor_done,
     missing_sponsors,
+    needs_referral_captcha,
     parse_chat_ref,
 )
 from tests.fakes import FakeBot, FakeChat
@@ -204,3 +206,27 @@ async def test_all_sponsors_includes_expired_and_quota_reached(session):
 
     ids = [s.id for s in await all_sponsors(session)]
     assert ids == [expired.id, quota.id]
+
+
+@pytest.mark.asyncio
+async def test_needs_referral_captcha_true_without_sponsors(session):
+    await register_user(session, 1, "owner", "Owner")
+    friend = await register_user(session, 2, "friend", "Friend", ref_id=1)
+    assert await needs_referral_captcha(session, friend) is True
+
+
+@pytest.mark.asyncio
+async def test_needs_referral_captcha_false_when_sponsor_exists(session):
+    await register_user(session, 1, "owner", "Owner")
+    friend = await register_user(session, 2, "friend", "Friend", ref_id=1)
+    await add_bot_sponsor(session, "@partner_bot")
+    assert await needs_referral_captcha(session, friend) is False
+
+
+@pytest.mark.asyncio
+async def test_needs_referral_captcha_false_when_credited(session):
+    await register_user(session, 1, "owner", "Owner")
+    friend = await register_user(session, 2, "friend", "Friend", ref_id=1)
+    friend.referral_credited = True
+    await session.commit()
+    assert await needs_referral_captcha(session, friend) is False
