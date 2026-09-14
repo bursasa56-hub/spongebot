@@ -597,6 +597,11 @@ async def admin_mark_paid(callback: CallbackQuery, session, bot) -> None:
     await callback.answer("Отмечено как выплачено")
 
 
+@router_admin.callback_query(F.data.startswith("wd:paid:"))
+async def admin_mark_paid_denied(callback: CallbackQuery) -> None:
+    await callback.answer("❌ Недостаточно прав.", show_alert=True)
+
+
 @router_admin.callback_query(F.data == "admin:withdrawals", IsAdmin())
 async def admin_withdrawals(callback: CallbackQuery, session) -> None:
     res = await session.execute(

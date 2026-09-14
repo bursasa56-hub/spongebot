@@ -285,3 +285,12 @@ async def test_task_quota_zero_finishes_channel(session):
     task = res.scalar_one()
     assert task.max_completions == 0
     assert task.expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_admin_mark_paid_denied_for_non_admin():
+    callback = FakeCallback("wd:paid:1")
+
+    await admin_handlers.admin_mark_paid_denied(callback)
+
+    assert callback.answered is True

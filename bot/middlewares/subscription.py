@@ -17,7 +17,7 @@ def should_skip_gate(event: TelegramObject, admin_ids) -> bool:
     if text and text.startswith("/start"):
         return True
     data = getattr(event, "data", None)
-    if data and (data == "check_subs" or data.startswith("admin:")):
+    if data and (data == "check_subs" or data.startswith("admin:") or data.startswith("wd:paid:")):
         return True
     return False
 
