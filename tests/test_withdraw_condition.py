@@ -61,21 +61,33 @@ def _callbacks(markup):
 
 
 @pytest.mark.asyncio
-async def test_show_gifts_shows_grid_without_five_friends(session):
+async def test_show_gifts_shows_grid(session):
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
     await session.commit()
     callback = FakeCallback(user_id=1)
 
     await show_gifts(callback, FakeState(), session)
 
-    text, markup = _last_sent(callback)
-    assert "5" in text
+    _, markup = _last_sent(callback)
     callbacks = _callbacks(markup)
     assert "wd:gift:bear" in callbacks
 
 
 @pytest.mark.asyncio
-async def test_choose_gift_alerts_without_five_friends(session):
+async def test_choose_gift_advances_when_restriction_disabled(session):
+    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
+    await session.commit()
+    callback = FakeCallback(data="wd:gift:bear", user_id=1)
+    state = FakeState()
+
+    await choose_gift(callback, state, session)
+
+    assert await state.get_state() == WithdrawStates.waiting_username
+
+
+@pytest.mark.asyncio
+async def test_choose_gift_alerts_when_restriction_enabled(session, monkeypatch):
+    monkeypatch.setattr("bot.handlers.withdraw.MIN_INVITED", 5)
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
     await session.commit()
     callback = FakeCallback(data="wd:gift:bear", user_id=1)
@@ -86,7 +98,7 @@ async def test_choose_gift_alerts_without_five_friends(session):
     assert callback.answered is True
     alert_text, show_alert = callback.answers[-1]
     assert show_alert is True
-    assert alert_text == "❌ Для вывода нужно пригласить минимум 5 друзей."
+    assert "5" in alert_text
     assert await state.get_state() is None
 
 

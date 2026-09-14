@@ -20,7 +20,7 @@ router_withdraw = Router()
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
 
-MIN_INVITED = 5
+MIN_INVITED = 0  # 0 = ограничение по друзьям отключено (поставь 5, чтобы включить)
 
 
 class WithdrawStates(StatesGroup):
@@ -38,14 +38,23 @@ def normalize_username(text: str) -> str | None:
 
 
 def withdraw_text(balance_tenths: int, invited: int) -> str:
-    return (
-        f"💵 <b>Баланс:</b> {format_stars(balance_tenths)}\n\n"
-        "❗️ <b>Для вывода требуется:</b>\n"
-        "— Минимум <b>5</b> приглашённых друзей, активировавших бота\n"
-        "— Быть подписанным на спонсоров\n\n"
-        "✅ Вывод обрабатывается в течение 24 часов.\n\n"
-        "Выбери подарок, который хочешь получить или отправить другу:"
-    )
+    lines = [
+        f"💵 <b>Баланс:</b> {format_stars(balance_tenths)}",
+        "",
+        "❗️ <b>Для вывода требуется:</b>",
+    ]
+    if MIN_INVITED:
+        lines.append(
+            f"— Минимум <b>{MIN_INVITED}</b> приглашённых друзей, активировавших бота"
+        )
+    lines.append("— Быть подписанным на спонсоров")
+    lines += [
+        "",
+        "✅ Вывод обрабатывается в течение 24 часов.",
+        "",
+        "Выбери подарок, который хочешь получить или отправить другу:",
+    ]
+    return "\n".join(lines)
 
 
 @router_withdraw.callback_query(F.data == MENU_WITHDRAW)
@@ -93,9 +102,10 @@ async def choose_gift(
         await callback.answer("Подарок не найден.", show_alert=True)
         return
     invited = await count_referrals(session, user.id)
-    if invited < MIN_INVITED:
+    if MIN_INVITED and invited < MIN_INVITED:
         await callback.answer(
-            "❌ Для вывода нужно пригласить минимум 5 друзей.", show_alert=True
+            f"❌ Для вывода нужно пригласить минимум {MIN_INVITED} друзей.",
+            show_alert=True,
         )
         return
     if user.balance_tenths < gift.stars * 10:
@@ -141,10 +151,10 @@ async def receive_username(
 
     user = await get_user(session, message.from_user.id)
     invited = await count_referrals(session, user.id) if user is not None else 0
-    if invited < MIN_INVITED:
+    if MIN_INVITED and invited < MIN_INVITED:
         await state.clear()
         await message.answer(
-            "❌ Пока нельзя: пригласи минимум 5 друзей.",
+            f"❌ Пока нельзя: пригласи минимум {MIN_INVITED} друзей.",
             reply_markup=cancel_kb(),
         )
         return
