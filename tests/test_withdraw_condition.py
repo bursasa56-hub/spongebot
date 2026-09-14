@@ -60,22 +60,27 @@ def _callbacks(markup):
     return [b.callback_data for row in markup.inline_keyboard for b in row]
 
 
+def _add_friends(session, count):
+    for uid in range(2, 2 + count):
+        session.add(User(id=uid, username=f"f{uid}", first_name="F", referred_by=1))
+
+
 @pytest.mark.asyncio
 async def test_show_gifts_shows_grid(session):
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
     await session.commit()
     callback = FakeCallback(user_id=1)
 
-    await show_gifts(callback, FakeState(), session)
+    await show_gifts(callback, session)
 
     _, markup = _last_sent(callback)
-    callbacks = _callbacks(markup)
-    assert "wd:gift:bear" in callbacks
+    assert "wd:gift:bear" in _callbacks(markup)
 
 
 @pytest.mark.asyncio
-async def test_choose_gift_advances_when_restriction_disabled(session):
+async def test_choose_gift_advances_with_five_friends_and_balance(session):
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
+    _add_friends(session, 5)
     await session.commit()
     callback = FakeCallback(data="wd:gift:bear", user_id=1)
     state = FakeState()
@@ -86,8 +91,7 @@ async def test_choose_gift_advances_when_restriction_disabled(session):
 
 
 @pytest.mark.asyncio
-async def test_choose_gift_alerts_when_restriction_enabled(session, monkeypatch):
-    monkeypatch.setattr("bot.handlers.withdraw.MIN_INVITED", 5)
+async def test_choose_gift_alerts_without_five_friends(session):
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
     await session.commit()
     callback = FakeCallback(data="wd:gift:bear", user_id=1)
@@ -103,12 +107,9 @@ async def test_choose_gift_alerts_when_restriction_enabled(session, monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_choose_gift_advances_with_five_friends_and_balance(session):
+async def test_choose_gift_advances_when_restriction_disabled(session, monkeypatch):
+    monkeypatch.setattr("bot.handlers.withdraw.MIN_INVITED", 0)
     session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
-    for uid in range(2, 7):
-        session.add(
-            User(id=uid, username=f"f{uid}", first_name="F", referred_by=1)
-        )
     await session.commit()
     callback = FakeCallback(data="wd:gift:bear", user_id=1)
     state = FakeState()
@@ -119,32 +120,16 @@ async def test_choose_gift_advances_with_five_friends_and_balance(session):
 
 
 @pytest.mark.asyncio
-async def test_show_gifts_shows_grid_with_five_friends(session):
-    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
-    for uid in range(2, 7):
-        session.add(
-            User(id=uid, username=f"f{uid}", first_name="F", referred_by=1)
-        )
+async def test_choose_gift_alerts_on_low_balance(session):
+    session.add(User(id=1, username="u", first_name="U", balance_tenths=10))
+    _add_friends(session, 5)
     await session.commit()
-    callback = FakeCallback(user_id=1)
+    callback = FakeCallback(data="wd:gift:diamond", user_id=1)
+    state = FakeState()
 
-    await show_gifts(callback, FakeState(), session)
+    await choose_gift(callback, state, session)
 
-    _, markup = _last_sent(callback)
-    assert "wd:gift:bear" in _callbacks(markup)
-
-
-@pytest.mark.asyncio
-async def test_show_gifts_resets_to_friend_flag(session):
-    session.add(User(id=1, username="u", first_name="U", balance_tenths=200))
-    for uid in range(2, 7):
-        session.add(
-            User(id=uid, username=f"f{uid}", first_name="F", referred_by=1)
-        )
-    await session.commit()
-    callback = FakeCallback(user_id=1)
-    state = FakeState({"to_friend": True})
-
-    await show_gifts(callback, state, session)
-
-    assert await state.get_data() == {"to_friend": False}
+    assert callback.answered is True
+    alert_text, show_alert = callback.answers[-1]
+    assert show_alert is True
+    assert await state.get_state() is None

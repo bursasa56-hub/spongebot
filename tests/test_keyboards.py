@@ -50,7 +50,7 @@ def test_gifts_kb_two_per_row_and_all_gifts():
     ids = [b.callback_data for row in kb.inline_keyboard for b in row]
     assert "wd:gift:bear" in ids
     assert "wd:gift:diamond" in ids
-    assert "wd:friend" in ids
+    assert "wd:friend" not in ids
 
 
 def test_task_kb_has_check_and_skip():

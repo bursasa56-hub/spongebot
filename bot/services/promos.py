@@ -65,4 +65,7 @@ async def redeem_promo(session: AsyncSession, user_id: int, code: str) -> PromoC
     promo.used_count += 1
     session.add(PromoUse(user_id=user_id, promo_id=promo.id))
     await session.commit()
+    if promo.max_uses and promo.used_count >= promo.max_uses:
+        await session.delete(promo)
+        await session.commit()
     return promo

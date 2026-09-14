@@ -20,7 +20,7 @@ router_withdraw = Router()
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
 
-MIN_INVITED = 0  # 0 = ограничение по друзьям отключено (поставь 5, чтобы включить)
+MIN_INVITED = 5  # 0 = ограничение по друзьям отключено
 
 
 class WithdrawStates(StatesGroup):
@@ -58,30 +58,13 @@ def withdraw_text(balance_tenths: int, invited: int) -> str:
 
 
 @router_withdraw.callback_query(F.data == MENU_WITHDRAW)
-async def show_gifts(callback: CallbackQuery, state: FSMContext, session) -> None:
-    await state.update_data(to_friend=False)
+async def show_gifts(callback: CallbackQuery, session) -> None:
     user = await get_user(session, callback.from_user.id)
     invited = await count_referrals(session, user.id) if user is not None else 0
     balance = user.balance_tenths if user is not None else 0
     await send_screen(
         callback.message,
         withdraw_text(balance, invited),
-        gifts_kb(),
-        asset="withdraw",
-    )
-    await callback.answer()
-
-
-@router_withdraw.callback_query(F.data == "wd:friend")
-async def gift_to_friend(callback: CallbackQuery, state: FSMContext, session) -> None:
-    await state.update_data(to_friend=True)
-    user = await get_user(session, callback.from_user.id)
-    invited = await count_referrals(session, user.id) if user is not None else 0
-    balance = user.balance_tenths if user is not None else 0
-    await send_screen(
-        callback.message,
-        withdraw_text(balance, invited)
-        + "\n\n🎁 Выбери подарок для друга:",
         gifts_kb(),
         asset="withdraw",
     )
@@ -113,17 +96,11 @@ async def choose_gift(
             "❌ Недостаточно звёзд для этого подарка.", show_alert=True
         )
         return
-    to_friend = (await state.get_data()).get("to_friend", False)
     await state.update_data(gift_id=gift.id)
     await state.set_state(WithdrawStates.waiting_username)
-    prompt = (
-        "Отправь <b>@username</b> друга, которому подарить звёзды:"
-        if to_friend
-        else "Отправь <b>@username</b>, куда вывести звёзды:"
-    )
     await callback.message.answer(
         f"🎁 Выбран подарок: {gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}\n\n"
-        f"{prompt}",
+        "Отправь <b>@username</b>, куда вывести звёзды:",
         reply_markup=cancel_kb(),
     )
     await callback.answer()
@@ -142,7 +119,6 @@ async def receive_username(
         return
 
     data = await state.get_data()
-    to_friend = data.get("to_friend", False)
     gift = GIFTS_BY_ID.get(data.get("gift_id", ""))
     if gift is None:
         await state.clear()
@@ -175,7 +151,7 @@ async def receive_username(
 
     await state.clear()
 
-    header = "🎁 Подарок другу" if to_friend else "💸 Вывод звёзд"
+    header = "💸 Вывод звёзд"
     admin_text = (
         f"{header}\n\n"
         f"🎁 Подарок: {gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}\n"

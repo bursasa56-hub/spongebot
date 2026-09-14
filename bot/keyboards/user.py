@@ -118,7 +118,6 @@ def gifts_kb() -> InlineKeyboardMarkup:
             row = []
     if row:
         rows.append(row)
-    rows.append([_btn("🎁 Подарить другу", "wd:friend")])
     rows.append([_btn("⬅️ Назад", MENU_MAIN)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

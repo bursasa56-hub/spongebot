@@ -82,3 +82,27 @@ async def test_delete_promo(session):
     assert await delete_promo(session, promo.id) is True
     assert await list_promos(session) == []
     assert await delete_promo(session, promo.id) is False
+
+
+@pytest.mark.asyncio
+async def test_redeem_exhausted_promo_auto_deleted(session):
+    from bot.db.models import PromoCode
+
+    await _add_user(session, 1)
+    promo = await create_promo(session, "AUTO", 1, 1)
+
+    returned = await redeem_promo(session, 1, "AUTO")
+
+    assert returned.stars == 1
+    assert await session.get(PromoCode, promo.id) is None
+    assert await list_promos(session) == []
+
+
+@pytest.mark.asyncio
+async def test_unlimited_promo_not_deleted(session):
+    await _add_user(session, 1)
+    await create_promo(session, "UNLIM", 1, 0)
+
+    await redeem_promo(session, 1, "UNLIM")
+
+    assert [p.code for p in await list_promos(session)] == ["UNLIM"]
