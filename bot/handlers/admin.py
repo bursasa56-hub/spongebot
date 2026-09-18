@@ -350,7 +350,12 @@ async def admin_sponsor_code(callback: CallbackQuery, session) -> None:
 async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
     await cleanup_expired_sponsors(session)
     sponsor_id = int(callback.data.split(":")[3])
-    await delete_sponsor(session, sponsor_id)
+    try:
+        await delete_sponsor(session, sponsor_id)
+    except Exception:
+        await session.rollback()
+        await callback.answer("❌ Не удалось удалить спонсора.", show_alert=True)
+        return
     sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
     await replace_screen(
