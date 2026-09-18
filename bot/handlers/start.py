@@ -11,6 +11,7 @@ from ..keyboards.user import CHECK_SUBS, MENU_MAIN, main_menu_kb, sponsor_gate_k
 from ..services.referral import credit_referrer, register_user
 from ..services.subscriptions import missing_sponsors, needs_referral_captcha
 from ..utils.assets import replace_screen, send_screen
+from ..utils.emoji import render
 from ..utils.stars import format_stars
 
 router_start = Router()
@@ -36,7 +37,7 @@ def parse_ref(payload: str | None) -> int | None:
 
 
 async def _show_menu(message: Message, user_id: int, edit: bool = False) -> None:
-    await send_screen(message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
+    await send_screen(message, render(MAIN_MENU_TEXT), main_menu_kb(), asset="menu")
 
 
 async def _credit_and_notify(session, bot, user_id: int) -> None:
@@ -70,7 +71,9 @@ async def cmd_start(
     missing = await missing_sponsors(session, bot, user.id)
     if missing:
         await message.answer(
-            "🔒 Для доступа подпишитесь на спонсоров и нажмите «Проверить подписку».",
+            render(
+                "🔒 Для доступа подпишитесь на спонсоров и нажмите «Проверить подписку»."
+            ),
             reply_markup=sponsor_gate_kb(missing),
         )
         return
@@ -91,7 +94,9 @@ async def check_subs(callback: CallbackQuery, state: FSMContext, session, bot) -
         await callback.answer("❌ Вы подписались не на всех спонсоров.", show_alert=True)
         await replace_screen(
             callback,
-            "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
+            render(
+                "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку»."
+            ),
             sponsor_gate_kb(missing),
         )
         return
@@ -105,7 +110,7 @@ async def check_subs(callback: CallbackQuery, state: FSMContext, session, bot) -
     await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
-    await replace_screen(callback, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
+    await replace_screen(callback, render(MAIN_MENU_TEXT), main_menu_kb(), asset="menu")
 
 
 @router_start.callback_query(F.data == MENU_MAIN)
@@ -114,10 +119,12 @@ async def back_to_main(callback: CallbackQuery, session, bot) -> None:
     if missing:
         await replace_screen(
             callback,
-            "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
+            render(
+                "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку»."
+            ),
             sponsor_gate_kb(missing),
         )
         await callback.answer()
         return
-    await replace_screen(callback, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
+    await replace_screen(callback, render(MAIN_MENU_TEXT), main_menu_kb(), asset="menu")
     await callback.answer()

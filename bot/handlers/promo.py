@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, Message
 from ..keyboards.user import MENU_PROMO, cancel_kb
 from ..services.promos import PromoError, redeem_promo
 from ..utils.assets import replace_screen
+from ..utils.emoji import render
 
 router_promo = Router()
 
@@ -21,7 +22,7 @@ async def ask_promo(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PromoStates.waiting_code)
     await replace_screen(
         callback,
-        "🎟 Отправь промокод сообщением.",
+        render("🎟 Отправь промокод сообщением."),
         cancel_kb(),
         asset="promo",
     )
@@ -34,8 +35,9 @@ async def apply_promo(message: Message, state: FSMContext, session) -> None:
     try:
         promo = await redeem_promo(session, message.from_user.id, message.text or "")
     except PromoError as exc:
-        await message.answer(f"❌ {exc}", reply_markup=cancel_kb())
+        await message.answer(render(f"❌ {exc}"), reply_markup=cancel_kb())
         return
     await message.answer(
-        f"✅ Промокод активирован! Начислено {promo.stars} ★.", reply_markup=cancel_kb()
+        render(f"✅ Промокод активирован! Начислено {promo.stars} ★."),
+        reply_markup=cancel_kb(),
     )

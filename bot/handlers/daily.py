@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery
 from ..keyboards.user import MENU_DAILY, back_kb
 from ..services.daily import DailyError, claim_daily
 from ..utils.assets import replace_screen
+from ..utils.emoji import render
 from ..utils.stars import format_stars
 
 router_daily = Router()
@@ -21,12 +22,12 @@ async def claim_daily_reward(callback: CallbackQuery, session, bot) -> None:
     try:
         reward = await claim_daily(session, callback.from_user.id, bio)
     except DailyError as exc:
-        await replace_screen(callback, f"❌ {exc}", back_kb())
+        await replace_screen(callback, render(f"❌ {exc}"), back_kb())
         await callback.answer()
         return
     await replace_screen(
         callback,
-        f"🎁 Ежедневная награда получена: +{format_stars(reward)}",
+        render(f"🎁 Ежедневная награда получена: +{format_stars(reward)}"),
         back_kb(),
     )
     await callback.answer()

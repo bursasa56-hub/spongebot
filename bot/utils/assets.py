@@ -4,6 +4,8 @@ from pathlib import Path
 
 from aiogram.types import FSInputFile
 
+from .emoji import render
+
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 ASSET_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -19,6 +21,7 @@ def asset_path(name: str) -> Path | None:
 
 async def send_screen(message, text: str, reply_markup=None, asset: str | None = None) -> None:
     """Send a new screen message: as a photo with caption when the asset exists, else text."""
+    text = render(text)
     if asset:
         path = asset_path(asset)
         if path is not None:

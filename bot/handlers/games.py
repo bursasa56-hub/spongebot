@@ -15,6 +15,7 @@ from ..keyboards.user import (
 from ..services.games import GameError, play_rps
 from ..services.referral import get_user
 from ..utils.assets import replace_screen
+from ..utils.emoji import render
 from ..utils.stars import format_stars
 
 router_games = Router()
@@ -30,7 +31,7 @@ class GameStates(StatesGroup):
 @router_games.callback_query(F.data == MENU_GAMES)
 async def games_menu(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await replace_screen(callback, "🎮 <b>Игры</b>\n\nВыбери игру:", games_menu_kb())
+    await replace_screen(callback, render("🎮 <b>Игры</b>\n\nВыбери игру:"), games_menu_kb())
     await callback.answer()
 
 
@@ -43,8 +44,10 @@ async def rps_start(callback: CallbackQuery, state: FSMContext, session) -> None
         return
     await replace_screen(
         callback,
-        f"🪨✂️📄 <b>Камень-ножницы-бумага</b>\n\n"
-        f"Баланс: {format_stars(user.balance_tenths)}\n\nВыбери ставку:",
+        render(
+            f"🪨✂️📄 <b>Камень-ножницы-бумага</b>\n\n"
+            f"Баланс: {format_stars(user.balance_tenths)}\n\nВыбери ставку:"
+        ),
         bet_kb(user.balance_tenths),
     )
     await callback.answer()
@@ -56,7 +59,7 @@ async def rps_bet(callback: CallbackQuery, state: FSMContext, session) -> None:
     if value == "custom":
         await state.set_state(GameStates.waiting_bet)
         await callback.message.answer(
-            "Отправь сумму ставки в звёздах (минимум 0.5).", reply_markup=back_kb()
+            render("Отправь сумму ставки в звёздах (минимум 0.5)."), reply_markup=back_kb()
         )
         await callback.answer()
         return
@@ -64,7 +67,7 @@ async def rps_bet(callback: CallbackQuery, state: FSMContext, session) -> None:
     await state.update_data(bet=bet)
     await state.set_state(None)
     await replace_screen(
-        callback, f"Ставка: {format_stars(bet)}\n\nВыбери ход:", rps_kb()
+        callback, render(f"Ставка: {format_stars(bet)}\n\nВыбери ход:"), rps_kb()
     )
     await callback.answer()
 
@@ -76,19 +79,19 @@ async def rps_custom_bet(message: Message, state: FSMContext, session) -> None:
     try:
         bet = stars_to_tenths(float((message.text or "").replace(",", ".")))
     except ValueError:
-        await message.answer("Введи число, например 0.5", reply_markup=back_kb())
+        await message.answer(render("Введи число, например 0.5"), reply_markup=back_kb())
         return
     user = await get_user(session, message.from_user.id)
     if user is None or bet < 5 or bet > user.balance_tenths:
         await message.answer(
-            "❌ Ставка должна быть от 0.5 ★ и не больше твоего баланса.",
+            render("❌ Ставка должна быть от 0.5 ★ и не больше твоего баланса."),
             reply_markup=back_kb(),
         )
         return
     await state.update_data(bet=bet)
     await state.set_state(None)
     await message.answer(
-        f"Ставка: {format_stars(bet)}\n\nВыбери ход:", reply_markup=rps_kb()
+        render(f"Ставка: {format_stars(bet)}\n\nВыбери ход:"), reply_markup=rps_kb()
     )
 
 
@@ -106,7 +109,7 @@ async def rps_move(callback: CallbackQuery, state: FSMContext, session) -> None:
         await callback.answer(str(exc), show_alert=True)
         return
     user = await get_user(session, callback.from_user.id)
-    text = (
+    text = render(
         f"{OUTCOME_LABELS[result['outcome']]}\n\n"
         f"Ты: {MOVE_LABELS[result['user_move']]}\n"
         f"Бот: {MOVE_LABELS[result['bot_move']]}\n"

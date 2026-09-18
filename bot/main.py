@@ -24,6 +24,7 @@ from .middlewares.db import DbSessionMiddleware
 from .middlewares.subscription import SubscriptionMiddleware
 from .middlewares.user import UserRegisterMiddleware
 from .services.partner_api import create_partner_app
+from .utils.emoji import load_custom_emoji
 
 logging.basicConfig(level=logging.INFO)
 
@@ -64,6 +65,7 @@ async def main() -> None:
     bot = Bot(
         config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
+    await load_custom_emoji(bot)
     dp = build_dispatcher(config, session_factory)
 
     app = create_partner_app(session_factory)

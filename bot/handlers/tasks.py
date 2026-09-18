@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery
 from ..keyboards.user import MENU_TASKS, back_kb, task_kb
 from ..services.tasks import available_tasks, complete_task, self_verifiable
 from ..utils.assets import replace_screen
+from ..utils.emoji import render
 from ..utils.stars import format_stars
 
 router_tasks = Router()
@@ -27,7 +28,7 @@ def task_body(task) -> str:
 
 
 def task_text(task) -> str:
-    return "📋 <b>Задание</b>\n\n" + task_body(task)
+    return render("📋 <b>Задание</b>\n\n" + task_body(task))
 
 
 @router_tasks.callback_query(F.data == MENU_TASKS)
@@ -36,7 +37,7 @@ async def show_tasks(callback: CallbackQuery, session) -> None:
     if not tasks:
         await replace_screen(
             callback,
-            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            render("📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!"),
             back_kb(),
         )
         await callback.answer()
@@ -44,7 +45,7 @@ async def show_tasks(callback: CallbackQuery, session) -> None:
     task = tasks[0]
     await replace_screen(
         callback,
-        f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_body(task),
+        render(f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_body(task)),
         task_kb(task),
     )
     await callback.answer()
@@ -81,7 +82,7 @@ async def check_task(callback: CallbackQuery, session, bot) -> None:
     if nxt is None:
         await replace_screen(
             callback,
-            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            render("📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!"),
             back_kb(),
         )
     else:
@@ -96,7 +97,7 @@ async def skip_task(callback: CallbackQuery, session) -> None:
         await callback.answer("Больше заданий нет.", show_alert=True)
         await replace_screen(
             callback,
-            "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
+            render("📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!"),
             back_kb(),
         )
         return
