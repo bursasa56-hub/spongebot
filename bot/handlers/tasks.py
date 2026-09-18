@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery
 
 from ..keyboards.user import MENU_TASKS, back_kb, task_kb
 from ..services.tasks import available_tasks, complete_task, self_verifiable
+from ..utils.assets import replace_screen
 from ..utils.stars import format_stars
 
 router_tasks = Router()
@@ -33,16 +34,18 @@ def task_text(task) -> str:
 async def show_tasks(callback: CallbackQuery, session) -> None:
     tasks = await available_tasks(session, callback.from_user.id)
     if not tasks:
-        await callback.message.answer(
+        await replace_screen(
+            callback,
             "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
-            reply_markup=back_kb(),
+            back_kb(),
         )
         await callback.answer()
         return
     task = tasks[0]
-    await callback.message.answer(
+    await replace_screen(
+        callback,
         f"📋 <b>Задания</b> (доступно: {len(tasks)})\n\n" + task_body(task),
-        reply_markup=task_kb(task),
+        task_kb(task),
     )
     await callback.answer()
 
@@ -76,12 +79,13 @@ async def check_task(callback: CallbackQuery, session, bot) -> None:
 
     nxt = await next_task(session, callback.from_user.id)
     if nxt is None:
-        await callback.message.answer(
+        await replace_screen(
+            callback,
             "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
-            reply_markup=back_kb(),
+            back_kb(),
         )
     else:
-        await callback.message.answer(task_text(nxt), reply_markup=task_kb(nxt))
+        await replace_screen(callback, task_text(nxt), task_kb(nxt))
 
 
 @router_tasks.callback_query(F.data.startswith("task:skip:"))
@@ -90,10 +94,11 @@ async def skip_task(callback: CallbackQuery, session) -> None:
     nxt = await next_task(session, callback.from_user.id, exclude_id=current_id)
     if nxt is None:
         await callback.answer("Больше заданий нет.", show_alert=True)
-        await callback.message.answer(
+        await replace_screen(
+            callback,
             "📋 <b>Задания</b>\n\nПока нет доступных заданий. Заходи позже!",
-            reply_markup=back_kb(),
+            back_kb(),
         )
         return
-    await callback.message.answer(task_text(nxt), reply_markup=task_kb(nxt))
+    await replace_screen(callback, task_text(nxt), task_kb(nxt))
     await callback.answer()

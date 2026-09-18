@@ -27,3 +27,11 @@ async def send_screen(message, text: str, reply_markup=None, asset: str | None =
             )
             return
     await message.answer(text, reply_markup=reply_markup)
+
+
+async def replace_screen(callback, text: str, reply_markup=None, asset: str | None = None) -> None:
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await send_screen(callback.message, text, reply_markup, asset=asset)

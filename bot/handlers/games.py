@@ -14,6 +14,7 @@ from ..keyboards.user import (
 )
 from ..services.games import GameError, play_rps
 from ..services.referral import get_user
+from ..utils.assets import replace_screen
 from ..utils.stars import format_stars
 
 router_games = Router()
@@ -29,7 +30,7 @@ class GameStates(StatesGroup):
 @router_games.callback_query(F.data == MENU_GAMES)
 async def games_menu(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.answer("🎮 <b>Игры</b>\n\nВыбери игру:", reply_markup=games_menu_kb())
+    await replace_screen(callback, "🎮 <b>Игры</b>\n\nВыбери игру:", games_menu_kb())
     await callback.answer()
 
 
@@ -40,10 +41,11 @@ async def rps_start(callback: CallbackQuery, state: FSMContext, session) -> None
     if user is None:
         await callback.answer("Профиль не найден.", show_alert=True)
         return
-    await callback.message.answer(
+    await replace_screen(
+        callback,
         f"🪨✂️📄 <b>Камень-ножницы-бумага</b>\n\n"
         f"Баланс: {format_stars(user.balance_tenths)}\n\nВыбери ставку:",
-        reply_markup=bet_kb(user.balance_tenths),
+        bet_kb(user.balance_tenths),
     )
     await callback.answer()
 
@@ -61,8 +63,8 @@ async def rps_bet(callback: CallbackQuery, state: FSMContext, session) -> None:
     bet = int(value)
     await state.update_data(bet=bet)
     await state.set_state(None)
-    await callback.message.answer(
-        f"Ставка: {format_stars(bet)}\n\nВыбери ход:", reply_markup=rps_kb()
+    await replace_screen(
+        callback, f"Ставка: {format_stars(bet)}\n\nВыбери ход:", rps_kb()
     )
     await callback.answer()
 
@@ -111,5 +113,5 @@ async def rps_move(callback: CallbackQuery, state: FSMContext, session) -> None:
         f"Ставка: {format_stars(result['bet'])}\n\n"
         f"💰 Баланс: {format_stars(user.balance_tenths)}"
     )
-    await callback.message.answer(text, reply_markup=rps_kb())
+    await replace_screen(callback, text, rps_kb())
     await callback.answer()

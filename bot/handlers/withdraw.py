@@ -12,7 +12,7 @@ from ..keyboards.admin import withdraw_admin_kb
 from ..keyboards.user import MENU_WITHDRAW, cancel_kb, gifts_kb
 from ..services.referral import count_referrals, get_user
 from ..services.withdrawals import WithdrawalError, create_withdrawal
-from ..utils.assets import send_screen
+from ..utils.assets import replace_screen
 from ..utils.gifts import GIFTS_BY_ID
 from ..utils.stars import format_stars
 
@@ -62,8 +62,8 @@ async def show_gifts(callback: CallbackQuery, session) -> None:
     user = await get_user(session, callback.from_user.id)
     invited = await count_referrals(session, user.id) if user is not None else 0
     balance = user.balance_tenths if user is not None else 0
-    await send_screen(
-        callback.message,
+    await replace_screen(
+        callback,
         withdraw_text(balance, invited),
         gifts_kb(),
         asset="withdraw",
@@ -98,10 +98,11 @@ async def choose_gift(
         return
     await state.update_data(gift_id=gift.id)
     await state.set_state(WithdrawStates.waiting_username)
-    await callback.message.answer(
+    await replace_screen(
+        callback,
         f"🎁 Выбран подарок: {gift.emoji} {gift.name} — {format_stars(gift.stars * 10)}\n\n"
         "Отправь <b>@username</b>, куда вывести звёзды:",
-        reply_markup=cancel_kb(),
+        cancel_kb(),
     )
     await callback.answer()
 

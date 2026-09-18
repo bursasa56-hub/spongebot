@@ -10,7 +10,7 @@ from ..handlers.captcha import send_captcha
 from ..keyboards.user import CHECK_SUBS, MENU_MAIN, main_menu_kb, sponsor_gate_kb
 from ..services.referral import credit_referrer, register_user
 from ..services.subscriptions import missing_sponsors, needs_referral_captcha
-from ..utils.assets import send_screen
+from ..utils.assets import replace_screen, send_screen
 from ..utils.stars import format_stars
 
 router_start = Router()
@@ -89,9 +89,10 @@ async def check_subs(callback: CallbackQuery, state: FSMContext, session, bot) -
     missing = await missing_sponsors(session, bot, user.id)
     if missing:
         await callback.answer("❌ Вы подписались не на всех спонсоров.", show_alert=True)
-        await callback.message.answer(
+        await replace_screen(
+            callback,
             "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
-            reply_markup=sponsor_gate_kb(missing),
+            sponsor_gate_kb(missing),
         )
         return
 
@@ -104,22 +105,19 @@ async def check_subs(callback: CallbackQuery, state: FSMContext, session, bot) -
     await _credit_and_notify(session, bot, user.id)
 
     await callback.answer("✅ Подписка подтверждена!")
-    await send_screen(
-        callback.message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu"
-    )
+    await replace_screen(callback, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
 
 
 @router_start.callback_query(F.data == MENU_MAIN)
 async def back_to_main(callback: CallbackQuery, session, bot) -> None:
     missing = await missing_sponsors(session, bot, callback.from_user.id)
     if missing:
-        await callback.message.answer(
+        await replace_screen(
+            callback,
             "🔒 Подпишитесь на спонсоров и нажмите «Проверить подписку».",
-            reply_markup=sponsor_gate_kb(missing),
+            sponsor_gate_kb(missing),
         )
         await callback.answer()
         return
-    await send_screen(
-        callback.message, MAIN_MENU_TEXT, main_menu_kb(), asset="menu"
-    )
+    await replace_screen(callback, MAIN_MENU_TEXT, main_menu_kb(), asset="menu")
     await callback.answer()

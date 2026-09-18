@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery, Message
 
 from ..keyboards.user import MENU_PROMO, cancel_kb
 from ..services.promos import PromoError, redeem_promo
-from ..utils.assets import send_screen
+from ..utils.assets import replace_screen
 
 router_promo = Router()
 
@@ -19,8 +19,8 @@ class PromoStates(StatesGroup):
 @router_promo.callback_query(F.data == MENU_PROMO)
 async def ask_promo(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PromoStates.waiting_code)
-    await send_screen(
-        callback.message,
+    await replace_screen(
+        callback,
         "🎟 Отправь промокод сообщением.",
         cancel_kb(),
         asset="promo",

@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from ..keyboards.user import main_menu_kb
 from ..services.referral import credit_referrer
+from ..utils.assets import replace_screen
 from ..utils.captcha import build_captcha
 from ..utils.stars import format_stars
 
@@ -32,6 +33,10 @@ async def captcha_answer(callback: CallbackQuery, state: FSMContext, session, bo
     target = data.get("captcha_target")
     if not target or answer != target:
         await callback.answer("❌ Неверно, попробуй снова.", show_alert=True)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
         await send_captcha(callback.message, state)
         return
     await state.clear()
@@ -45,7 +50,8 @@ async def captcha_answer(callback: CallbackQuery, state: FSMContext, session, bo
         except Exception:
             pass
     await callback.answer("✅ Проверка пройдена!")
-    await callback.message.answer(
+    await replace_screen(
+        callback,
         "✅ Проверка пройдена! Теперь ты можешь пользоваться ботом.",
-        reply_markup=main_menu_kb(),
+        main_menu_kb(),
     )

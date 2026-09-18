@@ -12,7 +12,7 @@ from ..keyboards.user import (
     instruction_kb,
 )
 from ..services.referral import count_referrals, get_user
-from ..utils.assets import send_screen
+from ..utils.assets import replace_screen
 from ..utils.stars import format_stars
 
 router_user = Router()
@@ -50,8 +50,8 @@ async def show_profile(callback: CallbackQuery, session, bot) -> None:
         return
     invited = await count_referrals(session, user.id)
     me = await bot.get_me()
-    await send_screen(
-        callback.message,
+    await replace_screen(
+        callback,
         profile_text(user, me.username, invited),
         back_kb(),
         asset="profile",
@@ -61,8 +61,8 @@ async def show_profile(callback: CallbackQuery, session, bot) -> None:
 
 @router_user.callback_query(F.data == MENU_INSTRUCTION)
 async def show_instruction(callback: CallbackQuery, support_url: str) -> None:
-    await send_screen(
-        callback.message, INSTRUCTION_TEXT, instruction_kb(support_url), asset="instruction"
+    await replace_screen(
+        callback, INSTRUCTION_TEXT, instruction_kb(support_url), asset="instruction"
     )
     await callback.answer()
 
@@ -79,5 +79,5 @@ async def show_earn(callback: CallbackQuery, bot) -> None:
         "За каждого друга, который подпишется на всех спонсоров — 3 ★.\n\n"
         f"🔗 Твоя ссылка:\n<code>{ref_link}</code>"
     )
-    await callback.message.answer(text, reply_markup=earn_kb(ref_link))
+    await replace_screen(callback, text, earn_kb(ref_link))
     await callback.answer()
