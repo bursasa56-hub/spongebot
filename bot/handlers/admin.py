@@ -51,6 +51,7 @@ from ..services.subscriptions import (
 from ..services.withdrawals import mark_paid
 from ..utils.assets import replace_screen
 from ..utils.stars import format_stars, stars_to_tenths
+from ..utils.emoji import EMOJI_IDS
 
 router_admin = Router()
 logger = logging.getLogger(__name__)
@@ -104,6 +105,27 @@ async def _send_snippet(message, session, api_key, *, task_id=None, sponsor_id=N
 @router_admin.message(Command("admin"), IsAdmin())
 async def admin_panel(message: Message) -> None:
     await message.answer("🛠 <b>Админ-панель</b>", reply_markup=admin_menu_kb())
+
+
+@router_admin.message(Command("emoji"), IsAdmin())
+async def admin_emoji_info(message: Message, bot) -> None:
+    try:
+        sticker_set = await bot.get_sticker_set("vector_icons_by_fStikBot")
+    except Exception as exc:
+        await message.answer(f"❌ Не удалось получить набор: <code>{html.escape(str(exc))}</code>")
+        return
+    lines = [
+        f"name={sticker_set.name}",
+        f"type={getattr(sticker_set, 'sticker_type', '?')}",
+        f"stickers={len(sticker_set.stickers)}",
+        f"loaded={len(EMOJI_IDS)}",
+        "",
+    ]
+    for st in sticker_set.stickers[:50]:
+        lines.append(f"{getattr(st, 'emoji', None)} -> {getattr(st, 'custom_emoji_id', None)}")
+    text = "\n".join(lines)
+    for i in range(0, len(text), 3500):
+        await message.answer(f"<pre>{html.escape(text[i:i + 3500])}</pre>")
 
 
 @router_admin.callback_query(F.data == "admin:menu", IsAdmin())
