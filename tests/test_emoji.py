@@ -6,17 +6,26 @@ from bot.utils.emoji import load_custom_emoji, render
 
 def test_render_no_map_returns_text(monkeypatch):
     monkeypatch.setattr(emoji, "EMOJI_IDS", {})
+    monkeypatch.setattr(emoji, "OVERRIDES", {})
     assert render("hi") == "hi"
     assert render(None) == ""
 
 
 def test_render_replaces_known_emoji(monkeypatch):
     monkeypatch.setattr(emoji, "EMOJI_IDS", {"⭐": "123"})
+    monkeypatch.setattr(emoji, "OVERRIDES", {})
     assert render("a ⭐ b") == 'a <tg-emoji emoji-id="123">⭐</tg-emoji> b'
+
+
+def test_render_overrides_priority(monkeypatch):
+    monkeypatch.setattr(emoji, "EMOJI_IDS", {"⭐": "auto"})
+    monkeypatch.setattr(emoji, "OVERRIDES", {"⭐": "manual"})
+    assert render("⭐") == '<tg-emoji emoji-id="manual">⭐</tg-emoji>'
 
 
 def test_render_is_idempotent(monkeypatch):
     monkeypatch.setattr(emoji, "EMOJI_IDS", {"⭐": "123"})
+    monkeypatch.setattr(emoji, "OVERRIDES", {})
     once = render("a ⭐ b")
     assert render(once) == once
 

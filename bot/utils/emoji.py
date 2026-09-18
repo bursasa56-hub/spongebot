@@ -7,8 +7,40 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SET = "vector_icons_by_fStikBot"
 
-# fallback emoji -> custom_emoji_id
+# fallback emoji -> custom_emoji_id (auto-loaded from the pack)
 EMOJI_IDS: dict[str, str] = {}
+
+# Our UI emoji -> chosen custom_emoji_id from the pack (takes priority over EMOJI_IDS).
+OVERRIDES: dict[str, str] = {
+    "👋": "5339286072876614251",  # hand
+    "💰": "5237761614458933049",  # coin
+    "💵": "5237761614458933049",  # coin
+    "🎁": "5258212320282168974",  # balloon
+    "🎟": "5454386656628991407",  # key
+    "📖": "5258466217273871977",  # idea
+    "📋": "5341492148468465410",  # folder
+    "👤": "5454371323595744068",  # face
+    "👥": "5454365405130810498",  # hearts
+    "💸": "5258296359907249075",  # currency
+    "🎮": "5235588635885054955",  # dice
+    "🆘": "5453965363286925977",  # phone
+    "🔒": "5393302369024882368",  # lock
+    "✅": "5219899949281453881",  # check
+    "⭐": "5310224206732996002",  # star
+    "💎": "5264892613630111886",  # diamond
+    "⚡": "5219943216781995020",  # lightning
+    "🔥": "5222148368955877900",  # fire
+    "❗": "5220197908342648622",  # exclamation
+    "📈": "5246794802560774143",  # top
+    "🔗": "5454419255430767770",  # paperclip
+    "🎉": "5454345339043601366",  # fireworks
+    "🤖": "5314413943035278948",  # brain
+    "🆔": "5454079785510660283",  # laptop
+}
+
+
+def _mapping() -> dict[str, str]:
+    return {**EMOJI_IDS, **OVERRIDES}
 
 
 async def load_custom_emoji(bot, set_name: str = DEFAULT_SET) -> int:
@@ -35,10 +67,11 @@ def render(text: str | None) -> str:
     Already-rendered emoji are left untouched, so calling render twice is safe
     (handlers may wrap a text that send_screen also renders).
     """
-    if not text or not EMOJI_IDS:
+    mapping = _mapping()
+    if not text or not mapping:
         return text or ""
     result = text
-    for emoji, custom_id in EMOJI_IDS.items():
+    for emoji, custom_id in mapping.items():
         if emoji in result:
             result = re.sub(
                 re.escape(emoji) + r"(?!</tg-emoji>)",
