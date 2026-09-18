@@ -1,9 +1,10 @@
 import pytest
 from sqlalchemy import select
 
-from bot.db.models import TaskItem, User
+from bot.db.models import Sponsor, TaskItem, User
 from bot.handlers import admin as admin_handlers
 from bot.services.promos import create_promo, list_promos
+from bot.services.subscriptions import add_bot_sponsor
 from tests.fakes import FakeBot, FakeChat
 
 
@@ -92,7 +93,7 @@ async def test_sponsor_type_channel_asks_subtype():
 
 
 @pytest.mark.asyncio
-async def test_sponsor_subtype_stores_and_asks_link():
+async def test_sponsor_subtype_asks_limit():
     callback = FakeCallback("admin:sponsor:subtype:private_request")
     state = FakeState({"type": "channel"})
 
@@ -101,7 +102,54 @@ async def test_sponsor_subtype_stores_and_asks_link():
     data = await state.get_data()
     assert data["subtype"] == "private_request"
     assert data["type"] == "channel"
+    callbacks = [
+        b.callback_data
+        for row in callback.message.answers[-1][1]["reply_markup"].inline_keyboard
+        for b in row
+    ]
+    assert "admin:sponsor:limit:forever" in callbacks
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_sponsor_limit_forever_asks_link():
+    callback = FakeCallback("admin:sponsor:limit:forever")
+    state = FakeState({"type": "bot"})
+
+    await admin_handlers.admin_sponsor_limit_forever(callback, state)
+
+    data = await state.get_data()
+    assert data["hours"] == 0
+    assert data["quota"] == 0
     assert state.state == admin_handlers.AdminStates.sponsor_link
+    assert callback.message.answers
+    assert callback.answered is True
+
+
+@pytest.mark.asyncio
+async def test_sponsor_link_finishes_channel(session):
+    bot = FakeBot(member_status="administrator", chat=FakeChat(-100, "Chan", "chan"))
+    message = FakeMessage("@chan")
+    state = FakeState(
+        {"type": "channel", "subtype": "public_channel", "hours": 0, "quota": 0}
+    )
+
+    await admin_handlers.admin_sponsor_link(message, state, session, bot)
+
+    assert state.cleared is True
+    assert message.answers
+    assert "добавлен" in message.answers[-1][0]
+
+
+@pytest.mark.asyncio
+async def test_admin_del_sponsor_removes_from_db(session):
+    sponsor = await add_bot_sponsor(session, "@del_bot")
+    callback = FakeCallback(f"admin:sponsor:del:{sponsor.id}")
+
+    await admin_handlers.admin_del_sponsor(callback, session)
+
+    assert await session.get(Sponsor, sponsor.id) is None
     assert callback.message.answers
     assert callback.answered is True
 
@@ -147,27 +195,26 @@ async def test_admin_promo_del_removes_promo(session):
 
 
 @pytest.mark.asyncio
-async def test_sponsor_duration_one_sets_hours_state():
-    callback = FakeCallback("admin:sponsor:duration:1")
-    state = FakeState({"type": "channel", "link": "@chan"})
+async def test_sponsor_limit_time_sets_hours_state():
+    callback = FakeCallback("admin:sponsor:limit:time")
+    state = FakeState({"type": "bot"})
 
-    await admin_handlers.admin_sponsor_duration(callback, state)
+    await admin_handlers.admin_sponsor_limit_time(callback, state)
 
     assert state.state == admin_handlers.AdminStates.sponsor_hours
+    assert callback.message.answers
     assert callback.answered is True
 
 
 @pytest.mark.asyncio
-async def test_sponsor_quota_zero_finishes_channel(session):
-    bot = FakeBot(member_status="administrator", chat=FakeChat(-100, "Chan", "chan"))
-    callback = FakeCallback("admin:sponsor:quota:0")
-    state = FakeState({"type": "channel", "link": "@chan", "hours": 0})
+async def test_sponsor_limit_quota_sets_quota_state():
+    callback = FakeCallback("admin:sponsor:limit:quota")
+    state = FakeState({"type": "bot"})
 
-    await admin_handlers.admin_sponsor_quota_choice(callback, state, session, bot)
+    await admin_handlers.admin_sponsor_limit_quota(callback, state)
 
-    assert state.cleared is True
+    assert state.state == admin_handlers.AdminStates.sponsor_quota
     assert callback.message.answers
-    assert "добавлен" in callback.message.answers[-1][0]
     assert callback.answered is True
 
 

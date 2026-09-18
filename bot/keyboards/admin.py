@@ -51,32 +51,24 @@ def sponsors_admin_kb(sponsors, statuses: dict[int, str]) -> InlineKeyboardMarku
 
 def sponsor_type_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [_btn("📢 Канал", "admin:sponsor:type:channel"), _btn("🤖 Бот", "admin:sponsor:type:bot")],
+        [_btn("📢 Канал/чат", "admin:sponsor:type:channel"), _btn("🤖 Бот", "admin:sponsor:type:bot")],
         [_btn("⬅️ Назад", "admin:menu")],
     ])
 
 
-def sponsor_duration_kb() -> InlineKeyboardMarkup:
+def sponsor_limit_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [_btn("♾ Бессрочно", "admin:sponsor:duration:0")],
-        [_btn("⏳ На время", "admin:sponsor:duration:1")],
-        [_btn("⬅️ Назад", "admin:menu")],
-    ])
-
-
-def sponsor_quota_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [_btn("♾ Без лимита", "admin:sponsor:quota:0")],
-        [_btn("🔢 На количество", "admin:sponsor:quota:1")],
+        [_btn("🔢 На количество", "admin:sponsor:limit:quota")],
+        [_btn("⏳ На время", "admin:sponsor:limit:time")],
+        [_btn("♾ Навсегда", "admin:sponsor:limit:forever")],
         [_btn("⬅️ Назад", "admin:menu")],
     ])
 
 
 def sponsor_channel_subtype_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [_btn("📢 Публичный канал", "admin:sponsor:subtype:public_channel")],
-        [_btn("💬 Чат (группа)", "admin:sponsor:subtype:chat")],
-        [_btn("🔒 Частный канал (заявка)", "admin:sponsor:subtype:private_request")],
+        [_btn("📢 Публичный канал/чат", "admin:sponsor:subtype:public_channel")],
+        [_btn("🔒 Частный чат/канал", "admin:sponsor:subtype:private_request")],
         [_btn("⬅️ Назад", "admin:menu")],
     ])
 

@@ -56,6 +56,26 @@ async def all_sponsors(session: AsyncSession) -> list[Sponsor]:
     return list(res.scalars().all())
 
 
+async def cleanup_expired_sponsors(session: AsyncSession) -> int:
+    from datetime import datetime
+
+    now = datetime.utcnow()
+    res = await session.execute(
+        select(Sponsor).where(Sponsor.expires_at.is_not(None), Sponsor.expires_at <= now)
+    )
+    expired = list(res.scalars().all())
+    for sponsor in expired:
+        uses = await session.execute(
+            select(UserSponsor).where(UserSponsor.sponsor_id == sponsor.id)
+        )
+        for use in uses.scalars().all():
+            await session.delete(use)
+        await session.delete(sponsor)
+    if expired:
+        await session.commit()
+    return len(expired)
+
+
 async def active_sponsors(session: AsyncSession) -> list[Sponsor]:
     from datetime import datetime
 

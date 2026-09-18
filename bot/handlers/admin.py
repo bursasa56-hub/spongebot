@@ -18,8 +18,7 @@ from ..keyboards.admin import (
     promos_admin_kb,
     settings_admin_kb,
     sponsor_channel_subtype_kb,
-    sponsor_duration_kb,
-    sponsor_quota_kb,
+    sponsor_limit_kb,
     sponsor_type_kb,
     sponsors_admin_kb,
     task_channel_subtype_kb,
@@ -43,6 +42,7 @@ from ..services.subscriptions import (
     add_bot_sponsor,
     add_channel_sponsor,
     all_sponsors,
+    cleanup_expired_sponsors,
     delete_sponsor,
     parse_chat_ref,
     sponsor_status,
@@ -189,6 +189,7 @@ async def admin_settings_api_url_save(message: Message, state: FSMContext, sessi
 
 @router_admin.callback_query(F.data == "admin:sponsors", IsAdmin())
 async def admin_sponsors(callback: CallbackQuery, session) -> None:
+    await cleanup_expired_sponsors(session)
     sponsors = await all_sponsors(session)
     statuses = {s.id: await sponsor_status(session, s) for s in sponsors}
     await callback.message.answer(
@@ -217,10 +218,8 @@ async def admin_sponsor_type(callback: CallbackQuery, state: FSMContext) -> None
             "Какой это канал?", reply_markup=sponsor_channel_subtype_kb()
         )
     else:
-        await state.set_state(AdminStates.sponsor_link)
         await callback.message.answer(
-            "Отправь ссылку на бота (@username или t.me/...).",
-            reply_markup=back_to_admin_kb(),
+            "На сколько?", reply_markup=sponsor_limit_kb()
         )
     await callback.answer()
 
@@ -229,35 +228,43 @@ async def admin_sponsor_type(callback: CallbackQuery, state: FSMContext) -> None
 async def admin_sponsor_subtype(callback: CallbackQuery, state: FSMContext) -> None:
     subtype = callback.data.split(":")[3]
     await state.update_data(subtype=subtype, type="channel")
-    await state.set_state(AdminStates.sponsor_link)
+    await callback.message.answer("На сколько?", reply_markup=sponsor_limit_kb())
+    await callback.answer()
+
+
+@router_admin.callback_query(F.data == "admin:sponsor:limit:quota", IsAdmin())
+async def admin_sponsor_limit_quota(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(AdminStates.sponsor_quota)
     await callback.message.answer(
-        "Отправь ссылку на канал (@username, t.me/... или id -100...). "
-        "Для частного канала отправь его id -100..., бот должен быть админом.",
-        reply_markup=back_to_admin_kb(),
+        "Сколько прохождений?", reply_markup=back_to_admin_kb()
     )
     await callback.answer()
 
 
-@router_admin.message(AdminStates.sponsor_link, IsAdmin())
-async def admin_sponsor_link(message: Message, state: FSMContext) -> None:
-    await state.update_data(link=(message.text or "").strip())
-    await message.answer("Срок действия?", reply_markup=sponsor_duration_kb())
-
-
-@router_admin.callback_query(F.data.startswith("admin:sponsor:duration:"), IsAdmin())
-async def admin_sponsor_duration(callback: CallbackQuery, state: FSMContext) -> None:
-    value = callback.data.split(":")[3]
-    if value == "0":
-        await state.update_data(hours=0)
-        await callback.message.answer(
-            "Лимит прохождений?", reply_markup=sponsor_quota_kb()
-        )
-    else:
-        await state.set_state(AdminStates.sponsor_hours)
-        await callback.message.answer(
-            "Сколько часов?", reply_markup=back_to_admin_kb()
-        )
+@router_admin.callback_query(F.data == "admin:sponsor:limit:time", IsAdmin())
+async def admin_sponsor_limit_time(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(AdminStates.sponsor_hours)
+    await callback.message.answer(
+        "Сколько часов?", reply_markup=back_to_admin_kb()
+    )
     await callback.answer()
+
+
+@router_admin.callback_query(F.data == "admin:sponsor:limit:forever", IsAdmin())
+async def admin_sponsor_limit_forever(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(hours=0, quota=0)
+    await _ask_sponsor_link(callback.message, state)
+    await callback.answer()
+
+
+async def _ask_sponsor_link(message, state: FSMContext) -> None:
+    data = await state.get_data()
+    if data.get("type") == "channel" and data.get("subtype") == "private_request":
+        prompt = "Отправь id частного чата/канала -100... (бот должен быть админом)."
+    else:
+        prompt = "Отправь ссылку (@username, t.me/... или id -100...)."
+    await state.set_state(AdminStates.sponsor_link)
+    await message.answer(prompt, reply_markup=back_to_admin_kb())
 
 
 @router_admin.message(AdminStates.sponsor_hours, IsAdmin())
@@ -269,28 +276,12 @@ async def admin_sponsor_hours(message: Message, state: FSMContext) -> None:
     except ValueError:
         await message.answer("Введи целое число ≥ 0.")
         return
-    await state.update_data(hours=hours)
-    await message.answer("Лимит прохождений?", reply_markup=sponsor_quota_kb())
-
-
-@router_admin.callback_query(F.data.startswith("admin:sponsor:quota:"), IsAdmin())
-async def admin_sponsor_quota_choice(
-    callback: CallbackQuery, state: FSMContext, session, bot
-) -> None:
-    value = callback.data.split(":")[3]
-    if value == "0":
-        await state.update_data(quota=0)
-        await _after_quota(bot, callback.message, state, session)
-    else:
-        await state.set_state(AdminStates.sponsor_quota)
-        await callback.message.answer(
-            "Сколько прохождений?", reply_markup=back_to_admin_kb()
-        )
-    await callback.answer()
+    await state.update_data(hours=hours, quota=0)
+    await _ask_sponsor_link(message, state)
 
 
 @router_admin.message(AdminStates.sponsor_quota, IsAdmin())
-async def admin_sponsor_quota(message: Message, state: FSMContext, session, bot) -> None:
+async def admin_sponsor_quota(message: Message, state: FSMContext) -> None:
     try:
         quota = int((message.text or "").strip())
         if quota < 0:
@@ -298,11 +289,13 @@ async def admin_sponsor_quota(message: Message, state: FSMContext, session, bot)
     except ValueError:
         await message.answer("Введи целое число ≥ 0.")
         return
-    await state.update_data(quota=quota)
-    await _after_quota(bot, message, state, session)
+    await state.update_data(quota=quota, hours=0)
+    await _ask_sponsor_link(message, state)
 
 
-async def _after_quota(bot, message, state: FSMContext, session) -> None:
+@router_admin.message(AdminStates.sponsor_link, IsAdmin())
+async def admin_sponsor_link(message: Message, state: FSMContext, session, bot) -> None:
+    await state.update_data(link=(message.text or "").strip())
     await _finish_sponsor(bot, message, state, session)
 
 
@@ -356,6 +349,7 @@ async def admin_sponsor_code(callback: CallbackQuery, session) -> None:
 
 @router_admin.callback_query(F.data.startswith("admin:sponsor:del:"), IsAdmin())
 async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
+    await cleanup_expired_sponsors(session)
     sponsor_id = int(callback.data.split(":")[3])
     await delete_sponsor(session, sponsor_id)
     sponsors = await all_sponsors(session)
@@ -676,10 +670,14 @@ async def admin_task_quota(message: Message, state: FSMContext, session, bot) ->
 
 
 async def _after_task_quota(bot, message, state: FSMContext, session) -> None:
-    await _finish_task(bot, message, state, session)
+    data = await state.get_data()
+    api_key = secrets.token_urlsafe(32) if data.get("type") == "bot" else None
+    await _finish_task(bot, message, state, session, api_key)
 
 
-async def _finish_task(bot, message, state: FSMContext, session) -> None:
+async def _finish_task(
+    bot, message, state: FSMContext, session, api_key=None
+) -> None:
     data = await state.get_data()
     subtype = data.get("subtype", "public_channel")
     hours = data.get("hours", 0)
@@ -742,7 +740,7 @@ async def _finish_task(bot, message, state: FSMContext, session) -> None:
         reward_tenths=data["reward"],
         expires_at=expires_at,
         max_completions=quota,
-        api_key=secrets.token_urlsafe(32) if data["type"] == "bot" else None,
+        api_key=api_key,
     )
     session.add(task)
     await session.commit()

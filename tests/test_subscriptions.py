@@ -11,6 +11,7 @@ from bot.services.subscriptions import (
     add_channel_sponsor,
     active_sponsors,
     all_sponsors,
+    cleanup_expired_sponsors,
     delete_sponsor,
     mark_sponsor_done,
     missing_sponsors,
@@ -154,6 +155,20 @@ async def test_delete_sponsor(session):
     sponsor = await add_bot_sponsor(session, "@partner_bot")
     assert await delete_sponsor(session, sponsor.id) is True
     assert await active_sponsors(session) == []
+
+
+@pytest.mark.asyncio
+async def test_cleanup_expired_sponsors_removes_only_expired(session):
+    expired = await add_bot_sponsor(session, "@expired_cleanup")
+    expired.expires_at = datetime.utcnow() - timedelta(hours=1)
+    await session.commit()
+    fresh = await add_bot_sponsor(session, "@fresh_cleanup")
+
+    removed = await cleanup_expired_sponsors(session)
+
+    assert removed == 1
+    ids = [s.id for s in await all_sponsors(session)]
+    assert ids == [fresh.id]
 
 
 @pytest.mark.asyncio

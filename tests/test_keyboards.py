@@ -5,8 +5,7 @@ from bot.keyboards.admin import (
     admin_menu_kb,
     promos_admin_kb,
     sponsor_channel_subtype_kb,
-    sponsor_duration_kb,
-    sponsor_quota_kb,
+    sponsor_limit_kb,
     sponsor_type_kb,
     sponsors_admin_kb,
     task_channel_subtype_kb,
@@ -81,6 +80,10 @@ def test_admin_menu_has_settings():
     assert "admin:settings" in data
 
 
+def test_admin_menu_has_no_partners():
+    assert "admin:partners" not in _callbacks(admin_menu_kb())
+
+
 def test_sponsors_admin_kb_shows_id_and_code_for_bot():
     sponsor = Sponsor(id=5, type="bot", title="@bot", url="https://t.me/bot")
     kb = sponsors_admin_kb([sponsor], {5: "бессрочно"})
@@ -109,16 +112,11 @@ def test_sponsor_type_kb_callbacks():
     assert "admin:sponsor:type:bot" in data
 
 
-def test_sponsor_duration_kb_callbacks():
-    data = _callbacks(sponsor_duration_kb())
-    assert "admin:sponsor:duration:0" in data
-    assert "admin:sponsor:duration:1" in data
-
-
-def test_sponsor_quota_kb_callbacks():
-    data = _callbacks(sponsor_quota_kb())
-    assert "admin:sponsor:quota:0" in data
-    assert "admin:sponsor:quota:1" in data
+def test_sponsor_limit_kb_callbacks():
+    data = _callbacks(sponsor_limit_kb())
+    assert "admin:sponsor:limit:quota" in data
+    assert "admin:sponsor:limit:time" in data
+    assert "admin:sponsor:limit:forever" in data
 
 
 def test_task_type_kb_callbacks():
@@ -157,7 +155,6 @@ def test_admin_menu_has_reset_stars():
 def test_sponsor_channel_subtype_kb_callbacks():
     data = _callbacks(sponsor_channel_subtype_kb())
     assert "admin:sponsor:subtype:public_channel" in data
-    assert "admin:sponsor:subtype:chat" in data
     assert "admin:sponsor:subtype:private_request" in data
 
 
