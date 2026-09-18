@@ -121,7 +121,7 @@ async def admin_emoji_info(message: Message, bot) -> None:
         f"loaded={len(EMOJI_IDS)}",
         "",
     ]
-    for st in sticker_set.stickers[:50]:
+    for st in sticker_set.stickers:
         lines.append(f"{getattr(st, 'emoji', None)} -> {getattr(st, 'custom_emoji_id', None)}")
     text = "\n".join(lines)
     for i in range(0, len(text), 3500):
