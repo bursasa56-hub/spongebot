@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,11 +66,9 @@ async def cleanup_expired_sponsors(session: AsyncSession) -> int:
     )
     expired = list(res.scalars().all())
     for sponsor in expired:
-        uses = await session.execute(
-            select(UserSponsor).where(UserSponsor.sponsor_id == sponsor.id)
+        await session.execute(
+            sa_delete(UserSponsor).where(UserSponsor.sponsor_id == sponsor.id)
         )
-        for use in uses.scalars().all():
-            await session.delete(use)
         await session.delete(sponsor)
     if expired:
         await session.commit()
@@ -264,11 +263,9 @@ async def delete_sponsor(session: AsyncSession, sponsor_id: int) -> bool:
     sponsor = await session.get(Sponsor, sponsor_id)
     if sponsor is None:
         return False
-    uses = await session.execute(
-        select(UserSponsor).where(UserSponsor.sponsor_id == sponsor_id)
+    await session.execute(
+        sa_delete(UserSponsor).where(UserSponsor.sponsor_id == sponsor_id)
     )
-    for use in uses.scalars().all():
-        await session.delete(use)
     await session.delete(sponsor)
     await session.commit()
     return True

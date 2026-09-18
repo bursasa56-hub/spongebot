@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,7 @@ async def delete_promo(session: AsyncSession, promo_id: int) -> bool:
     promo = await session.get(PromoCode, promo_id)
     if promo is None:
         return False
+    await session.execute(sa_delete(PromoUse).where(PromoUse.promo_id == promo_id))
     await session.delete(promo)
     await session.commit()
     return True
@@ -66,6 +68,7 @@ async def redeem_promo(session: AsyncSession, user_id: int, code: str) -> PromoC
     session.add(PromoUse(user_id=user_id, promo_id=promo.id))
     await session.commit()
     if promo.max_uses and promo.used_count >= promo.max_uses:
+        await session.execute(sa_delete(PromoUse).where(PromoUse.promo_id == promo.id))
         await session.delete(promo)
         await session.commit()
     return promo

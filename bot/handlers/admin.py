@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import secrets
 from datetime import datetime, timedelta
 
@@ -52,6 +53,7 @@ from ..utils.assets import replace_screen
 from ..utils.stars import format_stars, stars_to_tenths
 
 router_admin = Router()
+logger = logging.getLogger(__name__)
 
 
 class AdminStates(StatesGroup):
@@ -354,6 +356,7 @@ async def admin_del_sponsor(callback: CallbackQuery, session) -> None:
         await delete_sponsor(session, sponsor_id)
     except Exception:
         await session.rollback()
+        logger.exception("Failed to delete sponsor %s", sponsor_id)
         await callback.answer("❌ Не удалось удалить спонсора.", show_alert=True)
         return
     sponsors = await all_sponsors(session)
