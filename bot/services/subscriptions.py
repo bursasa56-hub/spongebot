@@ -264,6 +264,11 @@ async def delete_sponsor(session: AsyncSession, sponsor_id: int) -> bool:
     sponsor = await session.get(Sponsor, sponsor_id)
     if sponsor is None:
         return False
+    uses = await session.execute(
+        select(UserSponsor).where(UserSponsor.sponsor_id == sponsor_id)
+    )
+    for use in uses.scalars().all():
+        await session.delete(use)
     await session.delete(sponsor)
     await session.commit()
     return True
