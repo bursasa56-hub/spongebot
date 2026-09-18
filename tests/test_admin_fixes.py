@@ -3,7 +3,6 @@ from sqlalchemy import select
 
 from bot.db.models import TaskItem, User
 from bot.handlers import admin as admin_handlers
-from bot.services.partners import create_partner
 from bot.services.promos import create_promo, list_promos
 from tests.fakes import FakeBot, FakeChat
 
@@ -58,7 +57,7 @@ async def test_finish_task_escapes_title(session):
     )
     message = FakeMessage()
 
-    await admin_handlers._finish_task(FakeBot(), message, state, session, None)
+    await admin_handlers._finish_task(FakeBot(), message, state, session)
 
     text = message.answers[-1][0]
     assert "&lt;b&gt;Evil&lt;/b&gt;" in text
@@ -76,19 +75,6 @@ async def test_admin_back_clears_state():
     assert state.cleared is True
     assert callback.message.answers
     assert not callback.message.edits
-    assert callback.answered is True
-
-
-@pytest.mark.asyncio
-async def test_admin_partner_key_sends_key(session):
-    partner = await create_partner(session, "Acme")
-    callback = FakeCallback(f"admin:partner:key:{partner.id}")
-
-    await admin_handlers.admin_partner_key(callback, session)
-
-    text = callback.message.answers[-1][0]
-    assert partner.api_key in text
-    assert "<code>" in text
     assert callback.answered is True
 
 

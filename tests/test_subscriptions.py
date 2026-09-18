@@ -54,6 +54,7 @@ async def test_add_bot_sponsor(session):
     sponsor = await add_bot_sponsor(session, "https://t.me/partner_bot")
     assert sponsor.type == "bot"
     assert sponsor.url == "https://t.me/partner_bot"
+    assert sponsor.api_key
 
 
 @pytest.mark.asyncio

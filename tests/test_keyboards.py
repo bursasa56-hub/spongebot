@@ -1,10 +1,8 @@
 from urllib.parse import quote
 
-from bot.db.models import Partner, PromoCode, Sponsor, TaskItem
+from bot.db.models import PromoCode, Sponsor, TaskItem
 from bot.keyboards.admin import (
     admin_menu_kb,
-    partner_choice_kb,
-    partners_admin_kb,
     promos_admin_kb,
     sponsor_channel_subtype_kb,
     sponsor_duration_kb,
@@ -78,24 +76,9 @@ def test_earn_kb_url_encodes_ref_link_and_text():
     assert quote("Заработай звёзды!") in url
 
 
-def test_admin_menu_has_partners_and_settings():
+def test_admin_menu_has_settings():
     data = _callbacks(admin_menu_kb())
-    assert "admin:partners" in data
     assert "admin:settings" in data
-
-
-def test_partner_choice_kb_has_no_partner_option():
-    kb = partner_choice_kb([], "admin:sponsor:partner")
-    assert "admin:sponsor:partner:0" in _callbacks(kb)
-
-
-def test_partners_admin_kb_renders_partner_row():
-    partner = Partner(id=3, name="Acme", api_key="k")
-    kb = partners_admin_kb([partner])
-    callbacks = _callbacks(kb)
-    assert "admin:partner:add" in callbacks
-    assert "admin:partner:del:3" in callbacks
-    assert "admin:partner:key:3" in callbacks
 
 
 def test_sponsors_admin_kb_shows_id_and_code_for_bot():

@@ -13,7 +13,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
             [_btn("📢 Спонсоры", "admin:sponsors"), _btn("📋 Задания", "admin:tasks")],
             [_btn("✉️ Рассылка", "admin:broadcast"), _btn("📊 Статистика", "admin:stats")],
             [_btn("💸 Заявки на вывод", "admin:withdrawals")],
-            [_btn("🤝 Партнёры", "admin:partners"), _btn("⚙️ Настройки", "admin:settings")],
+            [_btn("⚙️ Настройки", "admin:settings")],
             [_btn("🎟 Промокоды", "admin:promos")],
             [_btn("🧹 Обнулить звёзды", "admin:reset")],
         ]
@@ -22,26 +22,6 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
 
 def back_to_admin_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_btn("⬅️ Назад", "admin:menu")]])
-
-
-def partners_admin_kb(partners) -> InlineKeyboardMarkup:
-    rows = [[_btn("➕ Добавить партнёра", "admin:partner:add")]]
-    for p in partners:
-        rows.append(
-            [
-                _btn(f"🗑 {p.name}", f"admin:partner:del:{p.id}"),
-                _btn("🔑 Ключ", f"admin:partner:key:{p.id}"),
-            ]
-        )
-    rows.append([_btn("⬅️ Назад", "admin:menu")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def partner_choice_kb(partners, prefix: str) -> InlineKeyboardMarkup:
-    rows = [[_btn(p.name, f"{prefix}:{p.id}")] for p in partners]
-    rows.append([_btn("Без партнёра", f"{prefix}:0")])
-    rows.append([_btn("⬅️ Назад", "admin:menu")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def settings_admin_kb() -> InlineKeyboardMarkup:

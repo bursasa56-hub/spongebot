@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -149,7 +151,6 @@ async def add_channel_sponsor(
     subtype: str = "public_channel",
     expires_at=None,
     max_completions: int = 0,
-    partner_id: int | None = None,
 ) -> Sponsor:
     chat_ref = parse_chat_ref(link)
     try:
@@ -206,7 +207,6 @@ async def add_channel_sponsor(
         chat_id=str(chat.id),
         expires_at=expires_at,
         max_completions=max_completions,
-        partner_id=partner_id,
     )
     session.add(sponsor)
     await session.commit()
@@ -219,7 +219,6 @@ async def add_bot_sponsor(
     *,
     expires_at=None,
     max_completions: int = 0,
-    partner_id: int | None = None,
 ) -> Sponsor:
     chat_ref = parse_chat_ref(link)
     username = chat_ref.lstrip("@")
@@ -234,7 +233,7 @@ async def add_bot_sponsor(
         chat_id=None,
         expires_at=expires_at,
         max_completions=max_completions,
-        partner_id=partner_id,
+        api_key=secrets.token_urlsafe(32),
     )
     session.add(sponsor)
     await session.commit()

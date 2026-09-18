@@ -3,7 +3,6 @@ from __future__ import annotations
 from aiohttp import web
 
 from ..db.models import Sponsor, TaskItem, User
-from .partners import verify_key
 from .subscriptions import mark_sponsor_done
 from .tasks import complete_task
 
@@ -17,9 +16,8 @@ def create_partner_app(session_factory) -> web.Application:
         except Exception:
             return web.json_response({"ok": False, "error": "bad_json"}, status=400)
 
-        async with session_factory() as session:
-            partner = await verify_key(session, data.get("api_key"))
-        if partner is None:
+        key = data.get("api_key")
+        if not key:
             return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
         has_task = data.get("task_id") is not None
@@ -37,23 +35,19 @@ def create_partner_app(session_factory) -> web.Application:
                 sponsor_id = int(data["sponsor_id"])
             except (TypeError, ValueError):
                 return web.json_response({"ok": False, "error": "bad_payload"}, status=400)
-
             async with session_factory() as session:
                 sponsor = await session.get(Sponsor, sponsor_id)
                 if (
                     sponsor is None
                     or not sponsor.active
                     or sponsor.type != "bot"
-                    or sponsor.partner_id != partner.id
+                    or not sponsor.api_key
+                    or sponsor.api_key != key
                 ):
-                    return web.json_response(
-                        {"ok": False, "error": "sponsor_not_found"}, status=404
-                    )
+                    return web.json_response({"ok": False, "error": "sponsor_not_found"}, status=404)
                 user = await session.get(User, user_id)
                 if user is None:
-                    return web.json_response(
-                        {"ok": False, "error": "user_not_found"}, status=404
-                    )
+                    return web.json_response({"ok": False, "error": "user_not_found"}, status=404)
                 credited = await mark_sponsor_done(session, user_id, sponsor_id)
                 return web.json_response({"ok": True, "credited": credited})
 
@@ -68,11 +62,10 @@ def create_partner_app(session_factory) -> web.Application:
                 task is None
                 or not task.active
                 or task.type != "bot"
-                or task.partner_id != partner.id
+                or not task.api_key
+                or task.api_key != key
             ):
-                return web.json_response(
-                    {"ok": False, "error": "task_not_found"}, status=404
-                )
+                return web.json_response({"ok": False, "error": "task_not_found"}, status=404)
             done = await complete_task(session, user_id, task_id)
             return web.json_response({"ok": True, "credited": done is not None})
 

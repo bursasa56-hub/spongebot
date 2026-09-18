@@ -54,7 +54,7 @@ async def test_finish_task_private_request_creates_invite(session):
     )
     message = FakeMessage()
 
-    await admin_handlers._finish_task(bot, message, state, session, None)
+    await admin_handlers._finish_task(bot, message, state, session)
 
     res = await session.execute(select(TaskItem))
     task = res.scalar_one()

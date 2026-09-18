@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import secrets
 from datetime import datetime, timedelta
 
 from aiogram import F, Router
@@ -14,8 +15,6 @@ from ..db.models import Broadcast, Sponsor, TaskItem, User, Withdrawal
 from ..keyboards.admin import (
     admin_menu_kb,
     back_to_admin_kb,
-    partner_choice_kb,
-    partners_admin_kb,
     promos_admin_kb,
     settings_admin_kb,
     sponsor_channel_subtype_kb,
@@ -30,12 +29,6 @@ from ..keyboards.admin import (
     tasks_admin_kb,
 )
 from ..middlewares.admin_filter import IsAdmin
-from ..services.partners import (
-    create_partner,
-    delete_partner,
-    get_partner,
-    list_partners,
-)
 from ..services.promos import (
     PromoError,
     create_promo,
@@ -65,7 +58,6 @@ class AdminStates(StatesGroup):
     sponsor_link = State()
     sponsor_hours = State()
     sponsor_quota = State()
-    sponsor_partner = State()
     task_type = State()
     task_subtype = State()
     task_link = State()
@@ -73,8 +65,6 @@ class AdminStates(StatesGroup):
     task_reward = State()
     task_hours = State()
     task_quota = State()
-    task_partner = State()
-    partner_name = State()
     settings_api_url = State()
     broadcast_text = State()
     promo_code = State()
@@ -98,10 +88,8 @@ def stats_text(stats) -> str:
     )
 
 
-async def _send_snippet(message, session, partner_id, *, task_id=None, sponsor_id=None) -> None:
+async def _send_snippet(message, session, api_key, *, task_id=None, sponsor_id=None) -> None:
     api_base = await get_setting(session, API_BASE_URL_KEY)
-    partner = await get_partner(session, partner_id) if partner_id else None
-    api_key = partner.api_key if partner else None
     snippet = build_snippet(api_base, api_key, task_id=task_id, sponsor_id=sponsor_id)
     await message.answer(
         "🔑 <b>Код для партнёрского бота:</b>\n<pre><code>"
@@ -162,65 +150,6 @@ async def admin_stats(callback: CallbackQuery, session) -> None:
         stats_text(stats), reply_markup=admin_menu_kb()
     )
     await callback.answer()
-
-
-@router_admin.callback_query(F.data == "admin:partners", IsAdmin())
-async def admin_partners(callback: CallbackQuery, session) -> None:
-    partners = await list_partners(session)
-    await callback.message.answer(
-        "🤝 <b>Партнёры</b>", reply_markup=partners_admin_kb(partners)
-    )
-    await callback.answer()
-
-
-@router_admin.callback_query(F.data == "admin:partner:add", IsAdmin())
-async def admin_partner_add(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(AdminStates.partner_name)
-    await callback.message.answer(
-        "Отправь название партнёра.", reply_markup=back_to_admin_kb()
-    )
-    await callback.answer()
-
-
-@router_admin.message(AdminStates.partner_name, IsAdmin())
-async def admin_partner_name(message: Message, state: FSMContext, session) -> None:
-    name = (message.text or "").strip()
-    if not name:
-        await message.answer("Введи название.")
-        return
-    partner = await create_partner(session, name)
-    await state.clear()
-    await message.answer(
-        f"✅ Партнёр «{html.escape(partner.name)}» добавлен.\n"
-        f"🔑 API-ключ: <code>{html.escape(partner.api_key)}</code>",
-        reply_markup=admin_menu_kb(),
-    )
-
-
-@router_admin.callback_query(F.data.startswith("admin:partner:key:"), IsAdmin())
-async def admin_partner_key(callback: CallbackQuery, session) -> None:
-    partner_id = int(callback.data.split(":")[3])
-    partner = await get_partner(session, partner_id)
-    if partner is None:
-        await callback.answer("Партнёр не найден.", show_alert=True)
-        return
-    await callback.message.answer(
-        f"🔑 <b>Ключ партнёра «{html.escape(partner.name)}»:</b>\n"
-        f"<code>{html.escape(partner.api_key)}</code>",
-        reply_markup=admin_menu_kb(),
-    )
-    await callback.answer()
-
-
-@router_admin.callback_query(F.data.startswith("admin:partner:del:"), IsAdmin())
-async def admin_partner_del(callback: CallbackQuery, session) -> None:
-    partner_id = int(callback.data.split(":")[3])
-    await delete_partner(session, partner_id)
-    partners = await list_partners(session)
-    await callback.message.answer(
-        "🤝 <b>Партнёры</b>", reply_markup=partners_admin_kb(partners)
-    )
-    await callback.answer("Удалено")
 
 
 @router_admin.callback_query(F.data == "admin:settings", IsAdmin())
@@ -374,28 +303,10 @@ async def admin_sponsor_quota(message: Message, state: FSMContext, session, bot)
 
 
 async def _after_quota(bot, message, state: FSMContext, session) -> None:
-    data = await state.get_data()
-    if data.get("type") == "bot":
-        partners = await list_partners(session)
-        await state.set_state(AdminStates.sponsor_partner)
-        await message.answer(
-            "Выбери партнёра:",
-            reply_markup=partner_choice_kb(partners, "admin:sponsor:partner"),
-        )
-    else:
-        await _finish_sponsor(bot, message, state, session, None)
+    await _finish_sponsor(bot, message, state, session)
 
 
-@router_admin.callback_query(F.data.startswith("admin:sponsor:partner:"), IsAdmin())
-async def admin_sponsor_partner(
-    callback: CallbackQuery, state: FSMContext, session, bot
-) -> None:
-    partner_id = int(callback.data.split(":")[3]) or None
-    await _finish_sponsor(bot, callback.message, state, session, partner_id)
-    await callback.answer()
-
-
-async def _finish_sponsor(bot, message, state: FSMContext, session, partner_id) -> None:
+async def _finish_sponsor(bot, message, state: FSMContext, session) -> None:
     data = await state.get_data()
     hours = data.get("hours", 0)
     quota = data.get("quota", 0)
@@ -411,7 +322,6 @@ async def _finish_sponsor(bot, message, state: FSMContext, session, partner_id) 
                 subtype=data.get("subtype", "public_channel"),
                 expires_at=expires_at,
                 max_completions=quota,
-                partner_id=partner_id,
             )
         else:
             sponsor = await add_bot_sponsor(
@@ -419,7 +329,6 @@ async def _finish_sponsor(bot, message, state: FSMContext, session, partner_id) 
                 link,
                 expires_at=expires_at,
                 max_completions=quota,
-                partner_id=partner_id,
             )
     except SponsorError as exc:
         await state.clear()
@@ -431,7 +340,7 @@ async def _finish_sponsor(bot, message, state: FSMContext, session, partner_id) 
         reply_markup=admin_menu_kb(),
     )
     if sponsor.type == "bot":
-        await _send_snippet(message, session, sponsor.partner_id, sponsor_id=sponsor.id)
+        await _send_snippet(message, session, sponsor.api_key, sponsor_id=sponsor.id)
 
 
 @router_admin.callback_query(F.data.startswith("admin:sponsor:code:"), IsAdmin())
@@ -441,7 +350,7 @@ async def admin_sponsor_code(callback: CallbackQuery, session) -> None:
     if sponsor is None:
         await callback.answer("Спонсор не найден.", show_alert=True)
         return
-    await _send_snippet(callback.message, session, sponsor.partner_id, sponsor_id=sponsor.id)
+    await _send_snippet(callback.message, session, sponsor.api_key, sponsor_id=sponsor.id)
     await callback.answer()
 
 
@@ -767,28 +676,10 @@ async def admin_task_quota(message: Message, state: FSMContext, session, bot) ->
 
 
 async def _after_task_quota(bot, message, state: FSMContext, session) -> None:
-    data = await state.get_data()
-    if data.get("type") == "bot":
-        partners = await list_partners(session)
-        await state.set_state(AdminStates.task_partner)
-        await message.answer(
-            "Выбери партнёра:",
-            reply_markup=partner_choice_kb(partners, "admin:task:partner"),
-        )
-    else:
-        await _finish_task(bot, message, state, session, None)
+    await _finish_task(bot, message, state, session)
 
 
-@router_admin.callback_query(F.data.startswith("admin:task:partner:"), IsAdmin())
-async def admin_task_partner(
-    callback: CallbackQuery, state: FSMContext, session, bot
-) -> None:
-    partner_id = int(callback.data.split(":")[3]) or None
-    await _finish_task(bot, callback.message, state, session, partner_id)
-    await callback.answer()
-
-
-async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> None:
+async def _finish_task(bot, message, state: FSMContext, session) -> None:
     data = await state.get_data()
     subtype = data.get("subtype", "public_channel")
     hours = data.get("hours", 0)
@@ -851,7 +742,7 @@ async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> 
         reward_tenths=data["reward"],
         expires_at=expires_at,
         max_completions=quota,
-        partner_id=partner_id,
+        api_key=secrets.token_urlsafe(32) if data["type"] == "bot" else None,
     )
     session.add(task)
     await session.commit()
@@ -861,7 +752,7 @@ async def _finish_task(bot, message, state: FSMContext, session, partner_id) -> 
         reply_markup=admin_menu_kb(),
     )
     if task.type == "bot":
-        await _send_snippet(message, session, task.partner_id, task_id=task.id)
+        await _send_snippet(message, session, task.api_key, task_id=task.id)
 
 
 @router_admin.callback_query(F.data.startswith("admin:task:code:"), IsAdmin())
@@ -871,7 +762,7 @@ async def admin_task_code(callback: CallbackQuery, session) -> None:
     if task is None:
         await callback.answer("Задание не найдено.", show_alert=True)
         return
-    await _send_snippet(callback.message, session, task.partner_id, task_id=task.id)
+    await _send_snippet(callback.message, session, task.api_key, task_id=task.id)
     await callback.answer()
 
 

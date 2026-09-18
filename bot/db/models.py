@@ -37,16 +37,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-class Partner(Base):
-    __tablename__ = "partners"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(255))
-    api_key: Mapped[str] = mapped_column(String(64), unique=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
 class Setting(Base):
     __tablename__ = "settings"
 
@@ -66,7 +56,7 @@ class Sponsor(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     max_completions: Mapped[int] = mapped_column(Integer, default=0)
-    partner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("partners.id"))
+    api_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -83,7 +73,7 @@ class TaskItem(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     max_completions: Mapped[int] = mapped_column(Integer, default=0)
-    partner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("partners.id"))
+    api_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
